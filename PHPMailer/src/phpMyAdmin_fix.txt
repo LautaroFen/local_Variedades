@@ -1,0 +1,56 @@
+SOLUCIONES PARA ERROR phpMyAdmin - Maximum execution time exceeded
+========================================================================
+
+OPCIÓN 1: Aumentar tiempo de ejecución de PHP
+----------------------------------------------
+1. Abrir: C:\xampp\php\php.ini
+2. Buscar la línea: max_execution_time = 120
+3. Cambiar a: max_execution_time = 300
+4. Reiniciar Apache desde XAMPP Control Panel
+
+OPCIÓN 2: Limpiar tabla password_reset_tokens (RECOMENDADO)
+-----------------------------------------------------------
+La tabla de códigos de recuperación puede estar acumulando registros.
+
+Ejecutar en MySQL (desde línea de comandos):
+
+cd C:\xampp\mysql\bin
+mysql -u root
+
+USE crud_instituto_empresa;
+-- o USE instituto_db;
+
+TRUNCATE TABLE password_reset_tokens;
+
+Esto elimina todos los códigos antiguos de recuperación sin afectar el sistema.
+
+OPCIÓN 3: Optimizar tablas
+---------------------------
+Desde línea de comandos MySQL:
+
+OPTIMIZE TABLE password_reset_tokens;
+OPTIMIZE TABLE clientes;
+OPTIMIZE TABLE usuarios_sistema;
+
+OPCIÓN 4: Acceder directamente sin phpMyAdmin
+----------------------------------------------
+Usar la línea de comandos para operaciones de base de datos:
+
+cd C:\xampp\mysql\bin
+mysql -u root crud_instituto_empresa
+
+Desde allí puedes ejecutar cualquier consulta SQL.
+
+OPCIÓN 5: Reiniciar servicios XAMPP
+------------------------------------
+1. Detener Apache y MySQL desde XAMPP Control Panel
+2. Esperar 10 segundos
+3. Iniciar Apache y MySQL nuevamente
+4. Intentar acceder a phpMyAdmin de nuevo
+
+PREVENCIÓN FUTURA
+------------------
+Agregar tarea programada para limpiar códigos antiguos de recuperación:
+
+DELETE FROM password_reset_tokens 
+WHERE fecha_creacion < DATE_SUB(NOW(), INTERVAL 24 HOUR);
