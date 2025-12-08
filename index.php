@@ -27,9 +27,9 @@ include("includes/header.php");
 
 <!-- Card Registrar Compra -->
 <div class="row g-0">
-    <div class="col-12 col-lg-8 offset-lg-2 mb-4">
-        <div class="card">
-            <div class="card-header">
+    <div class="col-12 mb-4">
+        <div class="card w-100">
+            <div class="card-header w-100">
                 <h5 class="mb-0">Registrar Compras</h5>
             </div>
             <div class="card-body">
@@ -169,8 +169,8 @@ include("includes/header.php");
 
 <!-- Card Buscar Compra -->
 <div class="row g-0">
-    <div class="col-12 col-lg-8 offset-lg-2 mb-4">
-        <div class="card">
+    <div class="col-12 mb-4">
+        <div class="card w-100">
             <div class="card-header">
                 <h5 class="mb-0">Buscar Compras</h5>
             </div>
@@ -195,9 +195,12 @@ include("includes/header.php");
                             </div>
                         </div>
                     </div>
-                    <button class="btn btn-success mt-2 w-100" type="button" data-bs-toggle="collapse" data-bs-target="#filtrosAvanzados" aria-expanded="false">
-                        Filtros de Busqueda
-                    </button>
+                    <div class="text-center d-flex justify-content-end" >
+                        <button class="btn btn-success mt-2 w-100" type="button" data-bs-toggle="collapse" data-bs-target="#filtrosAvanzados" aria-expanded="false">
+                            Filtros de Busqueda
+                        </button>
+                    </div>
+                    
 
                     <!-- Filtros avanzados (colapsables) -->
                     <div class="collapse mt-3" id="filtrosAvanzados">
@@ -256,377 +259,240 @@ include("includes/header.php");
 </div>
 
 <div class="row g-0">
-    <div class="col-12 col-lg-8 offset-lg-2 mb-4">
-        <div class="card">
-
-        <div class="card-header">
+    <div class="col-12 mb-4">
+        <div class="card w-100">
+            <div class="card-header">
                 <h5 class="mb-0">Historico Compras</h5>
-        </div> 
+            </div>
+
             <div class="card-body">
-                <script type="text/javascript">
-                    function confirmar() {
-                        return confirm('¿Quiere borrar el registro?');
-                    }
+
+                <script>
+                    const confirmar = () => confirm("¿Quiere borrar el registro?");
                 </script>
 
                 <?php
-                // Calcular totales antes de mostrar las pestañas
-                $total_atrasados = 0;
-                $total_pendientes = 0;
-                $total_finalizados = 0;
-                ?>
+                /* ==========================
+                   PAGINACIÓN
+                ============================ */
+                $por_pagina = 20;
+                $pagina = $_GET['pagina'] ?? 1;
+                $offset = ($pagina - 1) * $por_pagina;
 
-                <ul class="nav nav-tabs mb-3" id="clientesTabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="pendientes-tab" data-bs-toggle="tab" data-bs-target="#pendientes" type="button" role="tab">
-                            Pendientes <span class="badge bg-warning text-dark" id="badge-pendientes">0</span>
+                /* ==========================
+                   FILTROS
+                ============================ */
+                $where = [];
+                $params = [];
+
+                function addFilter($key, $sql, &$where, &$params)
+                {
+                    if (!empty($_GET[$key])) {
+                        $val = $_GET[$key];
+                        $where[] = str_replace("?", "'" . addslashes($val) . "'", $sql);
+                        $params[] = "$key=" . urlencode($val);
+                    }
+                }
+
+                addFilter("buscar", "(c.nombre_completo LIKE '%?%' OR c.telefono LIKE '%?%')", $where, $params);
+                addFilter("barrio", "c.barrio LIKE '%?%'", $where, $params);
+                addFilter("frecuencia", "c.frecuencia_pago = '?'", $where, $params);
+                addFilter("fecha_desde", "c.fecha_registro >= '?'", $where, $params);
+                addFilter("fecha_hasta", "c.fecha_registro <= '?'", $where, $params);
+
+                $where_sql = count($where) ? "WHERE " . implode(" AND ", $where) : "";
+
+                /* ==========================
+                   TOTAL REGISTROS
+                ============================ */
+                $total = mysqli_fetch_assoc(mysqli_query($conn, "
+                    SELECT COUNT(*) total 
+                    FROM clientes c 
+                    LEFT JOIN empleados_vendedores ev ON c.vendedor_id = ev.id 
+                    $where_sql
+                "))["total"];
+
+                $paginas = ceil($total / $por_pagina);
+
+                /* ==========================
+                   CONSULTA PRINCIPAL
+                ============================ */
+                $q = mysqli_query($conn, "
+                    SELECT 
+                        c.*,
+                        ev.nombre_completo AS vendedor_nombre,
+                        pc.total,
+                        pc.pagadas,
+                        pc.atrasadas
+                    FROM clientes c
+                    LEFT JOIN empleados_vendedores ev ON c.vendedor_id = ev.id
+                    LEFT JOIN (
+                        SELECT cliente_id,
+                            COUNT(*) total,
+                            SUM(CASE WHEN estado='pagado' THEN 1 END) pagadas,
+                            SUM(CASE WHEN estado='pendiente' AND fecha_programada < CURDATE() THEN 1 END) atrasadas
+                        FROM pagos_clientes
+                        GROUP BY cliente_id
+                    ) pc ON pc.cliente_id = c.id
+                    $where_sql
+                    ORDER BY c.id DESC
+                    LIMIT $por_pagina OFFSET $offset
+                ");
+
+                $pendientes = [];
+                $atrasados = [];
+                $finalizados = [];
+
+                while ($r = mysqli_fetch_assoc($q)) {
+                    $r["cuotas_pendientes"] = $r["total"] - $r["pagadas"];
+
+                    if ($r["cuotas_pendientes"] == 0)
+                        $finalizados[] = $r;
+                    elseif ($r["atrasadas"] > 0)
+                        $atrasados[] = $r;
+                    else
+                        $pendientes[] = $r;
+                }
+
+                /* ==========================
+                   FUNCIONES PARA TABLAS
+                ============================ */
+
+                function pintarFila($r, $estado_html)
+                {
+                    $cuota = number_format($r["valor_total"] / $r["cuotas"], 2, ",", ".");
+                    $valor_total = number_format($r["valor_total"], 2, ",", ".");
+                    $es_jefe = $_SESSION["tipo_usuario"] == "jefe";
+
+                    return "
+                    <tr>
+                        <td class='text-nowrap'>{$r['nombre_completo']}</td>
+                        <td class='text-nowrap'>{$r['telefono']}</td>
+                
+                        <td class='text-nowrap'>$ $valor_total</td>
+                        <td class='text-nowrap'>
+                            <span class='badge text-bg-info'>" . ucfirst($r["frecuencia_pago"]) . "</span>
+                        </td>
+                
+                        <td class='text-nowrap'>{$r['cuotas']}</td>
+                        <td class='text-nowrap fw-semibold'>$ $cuota</td>
+                
+                        <td class='text-nowrap'>
+                            <span class='badge text-bg-info'>$estado_html</span>
+                        </td>
+                
+                        <td class='text-nowrap'>
+                            <div class='btn-group btn-group-sm'>
+                
+                                <a href='ver.php?id={$r['id']}' class='btn btn-outline-primary'>
+                                    Ver
+                                </a>
+                
+                                " . ($es_jefe ? "<a href='editar.php?id={$r['id']}' class='btn btn-outline-warning'>
+                                    Editar
+                                </a>" : "") . "
+                
+                                <a href='estado_cuenta_pdf.php?id={$r['id']}' target='_blank' class='btn btn-outline-success'>
+                                    PDF
+                                </a>
+                
+                                " . ($es_jefe ? "<a href='eliminar.php?id={$r['id']}' class='btn btn-outline-danger' onclick='return confirmar()'>
+                                    Eliminar
+                                </a>" : "") . "
+
+                            </div>
+                        </td>
+                    </tr>";
+                }
+                function renderTabla($items, $titulo, $class, $badge)
+                {
+                    echo "
+                    <div class='$class'>
+                        <h4 class='fw-bold mb-3 text-center'>$titulo</h4>
+                
+                        <div class='table-responsive d-flex justify-content-center'>
+                            <table class='table table-striped table-hover align-middle mb-0'>
+                                <thead class='$badge'>
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Teléfono</th>
+                                        <th>Valor Total</th>
+                                        <th>Frecuencia</th>
+                                        <th>Cuotas</th>
+                                        <th>Por Cuota</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>";
+
+                    if (!$items) {
+                        echo "<tr><td colspan='8' class='text-center text-muted py-4'>Sin resultados</td></tr>";
+                    } else {
+                        foreach ($items as $r) {
+
+                            // badge del estado (texto sin badge)
+                            if ($badge == "table-danger") {
+                                $estado_txt = "{$r['atrasadas']} atrasada(s)";
+                            } elseif ($badge == "table-success") {
+                                $estado_txt = "Finalizado";
+                            } else {
+                                $estado_txt = "{$r['cuotas_pendientes']} pendiente(s)";
+                            }
+
+                            echo pintarFila($r, $estado_txt);
+                        }
+                    }
+
+                    echo "
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    ";
+                }
+                ?>
+                <!-- NAV -->
+                <ul class="nav nav-tabs mb-3">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab1">
+                            Pendientes
                         </button>
                     </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="atrasados-tab" data-bs-toggle="tab" data-bs-target="#atrasados" type="button" role="tab">
-                            Atrasados <span class="badge bg-danger" id="badge-atrasados">0</span>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab2">
+                            Atrasados
                         </button>
                     </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="finalizados-tab" data-bs-toggle="tab" data-bs-target="#finalizados" type="button" role="tab">
-                            Finalizados <span class="badge bg-success" id="badge-finalizados">0</span>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab3">
+                            Finalizados
                         </button>
                     </li>
                 </ul>
 
-                <div class="tab-content" id="clientesTabContent">
-                    <!-- TAB: CLIENTES PENDIENTES (AL DÍA) - PRIMERA PESTAÑA -->
-                    <div class="tab-pane fade show active" id="pendientes" role="tabpanel">
-                        <h3 class="text-center mb-3">⏳ Clientes con Pagos Pendientes (al día)</h3>
-                        <div class="table-responsive" style="max-height:420px; overflow:auto;">
-                            <table class="table table-bordered table-hover mb-0">
-                                <thead class="table-warning">
-                                    <tr>
-                                        <th>Nombre</th>
-                                        <th>Teléfono</th>
-                                        <th>Valor Total</th>
-                                        <th>Frecuencia</th>
-                                        <th>Cuotas</th>
-                                        <th>Por Cuota</th>
-                                        <th>Estado</th>
-                                        <th>Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php
-                                    // 📄 PAGINACIÓN
-                                    $registros_por_pagina = 20;
-                                    $pagina_actual = isset($_GET['pagina']) ? (int)$_GET['pagina'] : 1;
-                                    $offset = ($pagina_actual - 1) * $registros_por_pagina;
+                <div class="tab-content">
 
-                                    // 🎯 CONSTRUCCIÓN DE CONSULTA CON FILTROS
-                                    $where_conditions = [];
-                                    $params_url = [];
-
-                                    // Filtro de búsqueda simple
-                                    if (!empty($_GET['buscar'])) {
-                                        $buscar = mysqli_real_escape_string($conn, $_GET['buscar']);
-                                        $where_conditions[] = "(c.nombre_completo LIKE '%$buscar%' OR c.telefono LIKE '%$buscar%')";
-                                        $params_url[] = "buscar=" . urlencode($_GET['buscar']);
-                                    }
-
-                                    // Filtro por barrio
-                                    if (!empty($_GET['barrio'])) {
-                                        $barrio = mysqli_real_escape_string($conn, $_GET['barrio']);
-                                        $where_conditions[] = "c.barrio LIKE '%$barrio%'";
-                                        $params_url[] = "barrio=" . urlencode($_GET['barrio']);
-                                    }
-
-                                    // Filtro por frecuencia
-                                    if (!empty($_GET['frecuencia'])) {
-                                        $frecuencia = mysqli_real_escape_string($conn, $_GET['frecuencia']);
-                                        $where_conditions[] = "c.frecuencia_pago = '$frecuencia'";
-                                        $params_url[] = "frecuencia=" . urlencode($_GET['frecuencia']);
-                                    }
-
-                                    // Filtro por rango de fechas
-                                    if (!empty($_GET['fecha_desde'])) {
-                                        $fecha_desde = mysqli_real_escape_string($conn, $_GET['fecha_desde']);
-                                        $where_conditions[] = "c.fecha_registro >= '$fecha_desde'";
-                                        $params_url[] = "fecha_desde=" . urlencode($_GET['fecha_desde']);
-                                    }
-                                    if (!empty($_GET['fecha_hasta'])) {
-                                        $fecha_hasta = mysqli_real_escape_string($conn, $_GET['fecha_hasta']);
-                                        $where_conditions[] = "c.fecha_registro <= '$fecha_hasta'";
-                                        $params_url[] = "fecha_hasta=" . urlencode($_GET['fecha_hasta']);
-                                    }
-
-                                    // Construir WHERE clause
-                                    $where_sql = count($where_conditions) > 0 ? "WHERE " . implode(" AND ", $where_conditions) : "";
-
-                                    // Contar total de registros
-                                    $query_count = "SELECT COUNT(*) as total FROM clientes c 
-                                                LEFT JOIN empleados_vendedores ev ON c.vendedor_id = ev.id 
-                                                $where_sql";
-                                    $resultado_count = mysqli_query($conn, $query_count);
-                                    $row_count = mysqli_fetch_assoc($resultado_count);
-                                    $total_registros = $row_count['total'];
-                                    $total_paginas = ceil($total_registros / $registros_por_pagina);
-
-                                    // Consulta principal (incluir nombre del vendedor)
-                                    $query = "SELECT c.*, ev.nombre_completo as vendedor_nombre 
-                                          FROM clientes c 
-                                          LEFT JOIN empleados_vendedores ev ON c.vendedor_id = ev.id 
-                                          $where_sql ORDER BY c.id DESC LIMIT $registros_por_pagina OFFSET $offset";
-                                    $resultado = mysqli_query($conn, $query);
-
-                                    // Agregar filtro de estado a params_url
-                                    if (!empty($_GET['estado'])) {
-                                        $params_url[] = "estado=" . urlencode($_GET['estado']);
-                                    }
-
-                                    // Construir URL para paginación
-                                    $params_string = count($params_url) > 0 ? "&" . implode("&", $params_url) : "";
-
-                                    // 🎯 SEPARAR CLIENTES EN ATRASADOS, PENDIENTES Y FINALIZADOS
-                                    $clientes_atrasados = [];
-                                    $clientes_pendientes = [];
-                                    $clientes_finalizados = [];
-
-                                    if ($resultado && mysqli_num_rows($resultado) > 0) {
-                                        while ($row = mysqli_fetch_array($resultado)) {
-                                            // Obtener estado de pagos
-                                            $cliente_id = $row['id'];
-                                            $query_estado = "SELECT COUNT(*) as total, 
-                                                            SUM(CASE WHEN estado = 'pagado' THEN 1 ELSE 0 END) as pagadas,
-                                                            SUM(CASE WHEN estado = 'pendiente' AND fecha_programada < CURDATE() THEN 1 ELSE 0 END) as atrasadas
-                                                    FROM pagos_clientes WHERE cliente_id = $cliente_id";
-                                            $resultado_estado = mysqli_query($conn, $query_estado);
-                                            $estado_data = mysqli_fetch_assoc($resultado_estado);
-
-                                            $row['total_cuotas'] = $estado_data['total'];
-                                            $row['cuotas_pagadas'] = $estado_data['pagadas'];
-                                            $row['cuotas_atrasadas'] = $estado_data['atrasadas'];
-                                            $row['cuotas_pendientes'] = $estado_data['total'] - $estado_data['pagadas'];
-
-                                            // Aplicar filtro de estado si existe
-                                            $incluir = true;
-                                            if (!empty($_GET['estado'])) {
-                                                $estado_filter = $_GET['estado'];
-                                                if ($estado_filter == 'finalizado' && $row['cuotas_pendientes'] > 0) {
-                                                    $incluir = false;
-                                                } elseif ($estado_filter == 'pendiente' && $row['cuotas_pendientes'] == 0) {
-                                                    $incluir = false;
-                                                } elseif ($estado_filter == 'atrasado' && $row['cuotas_atrasadas'] == 0) {
-                                                    $incluir = false;
-                                                }
-                                            }
-
-                                            if ($incluir) {
-                                                // Clasificar en atrasados, pendientes o finalizados
-                                                if ($row['cuotas_pendientes'] > 0 && $row['cuotas_atrasadas'] > 0) {
-                                                    // Tiene pagos atrasados (prioridad)
-                                                    $clientes_atrasados[] = $row;
-                                                } elseif ($row['cuotas_pendientes'] > 0) {
-                                                    // Tiene pagos pendientes pero al día
-                                                    $clientes_pendientes[] = $row;
-                                                } else {
-                                                    // Todos los pagos completados
-                                                    $clientes_finalizados[] = $row;
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    // CALCULAR TOTALES
-                                    $total_atrasados = count($clientes_atrasados);
-                                    $total_pendientes = count($clientes_pendientes);
-                                    $total_finalizados = count($clientes_finalizados);
-
-                                    // MOSTRAR CLIENTES PENDIENTES (AL DÍA) - PRIMERA PESTAÑA
-                                    if (count($clientes_pendientes) > 0) {
-                                        foreach ($clientes_pendientes as $row) {
-                                            $monto_cuota = $row['valor_total'] / $row['cuotas'];
-                                            $cuotas_pendientes = $row['cuotas_pendientes'];
-                                            $estado_texto = '<span class="badge bg-warning text-dark">⏳ ' . $cuotas_pendientes . ' pendiente' . ($cuotas_pendientes != 1 ? 's' : '') . '</span>';
-                                    ?>
-                                            <tr>
-                                                <td><?php echo htmlspecialchars($row['nombre_completo']); ?></td>
-                                                <td><?php echo htmlspecialchars($row['telefono']); ?></td>
-                                                <td>$<?php echo number_format($row['valor_total'], 2, ',', '.'); ?></td>
-                                                <td>
-                                                    <span class="badge bg-info">
-                                                        <?php echo ucfirst($row['frecuencia_pago']); ?>
-                                                    </span>
-                                                </td>
-                                                <td><?php echo $row['cuotas']; ?></td>
-                                                <td><strong>$<?php echo number_format($monto_cuota, 2, ',', '.'); ?></strong></td>
-                                                <td><?php echo $estado_texto; ?></td>
-                                                <td>
-                                                    <div class="btn-group-vertical btn-group-sm" role="group">
-                                                        <a href="ver.php?id=<?php echo $row['id'] ?>" class="btn btn-outline-info btn-sm">
-
-                                                            👁️ Ver
-                                                        </a>
-                                                        <?php if ($_SESSION['tipo_usuario'] == 'jefe'): ?>
-                                                            <a href="editar.php?id=<?php echo $row['id'] ?>" class="btn btn-outline-warning btn-sm">
-                                                                ✏️ Editar
-                                                            </a>
-                                                        <?php endif; ?>
-                                                        <a href="estado_cuenta_pdf.php?id=<?php echo $row['id'] ?>" target="_blank" class="btn btn-outline-success btn-sm">
-                                                            📄 PDF
-                                                        </a>
-                                                        <?php if ($_SESSION['tipo_usuario'] == 'jefe'): ?>
-                                                            <a href="eliminar.php?id=<?php echo $row['id'] ?>" class="btn btn-outline-danger btn-sm" onclick="return confirmar();">
-                                                                🗑️ Eliminar
-                                                            </a>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                    <?php }
-                                    } else {
-                                        echo '<tr><td colspan="8" class="text-center text-muted">No hay clientes con pagos pendientes al día</td></tr>';
-                                    }
-                                    ?>
-                                </tbody>
-                            </table>
-                        </div>
+                    <!-- PENDIENTES -->
+                    <div class="tab-pane fade show active" id="tab1">
+                        <?php renderTabla($pendientes, "Clientes con pagos pendientes", "", "table-warning"); ?>
                     </div>
 
-                    <!-- TAB: PAGOS ATRASADOS - SEGUNDA PESTAÑA -->
-                    <div class="tab-pane fade" id="atrasados" role="tabpanel">
-                        <h3 class="text-center mb-3 text-danger">🚨 Clientes con Pagos Atrasados</h3>
-                        <div class="alert alert-danger">
-                            <strong>⚠️ Atención:</strong> Estos clientes tienen pagos vencidos que requieren seguimiento inmediato.
-                        </div>
-                        <div class="table-responsive" style="max-height:420px; overflow:auto;">
-                            <table class="table table-bordered table-hover mb-0">
-                                <thead class="table-danger">
-                                    <tr>
-                                        <th>Nombre</th>
-                                        <th>Teléfono</th>
-                                        <th>Valor Total</th>
-                                        <th>Frecuencia</th>
-                                        <th>Cuotas</th>
-                                        <th>Por Cuota</th>
-                                        <th>Estado</th>
-                                        <th>Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php
-                                    // MOSTRAR CLIENTES ATRASADOS
-                                    if (count($clientes_atrasados) > 0) {
-                                        foreach ($clientes_atrasados as $row) {
-                                            $monto_cuota = $row['valor_total'] / $row['cuotas'];
-                                            $cuotas_atrasadas = $row['cuotas_atrasadas'];
-                                            $estado_texto = '<span class="badge bg-danger">🚨 ' . $cuotas_atrasadas . ' atrasada' . ($cuotas_atrasadas != 1 ? 's' : '') . '</span>';
-                                    ?>
-                                            <tr>
-                                                <td><?php echo htmlspecialchars($row['nombre_completo']); ?></td>
-                                                <td><?php echo htmlspecialchars($row['telefono']); ?></td>
-                                                <td>$<?php echo number_format($row['valor_total'], 2, ',', '.'); ?></td>
-                                                <td>
-                                                    <span class="badge bg-info">
-                                                        <?php echo ucfirst($row['frecuencia_pago']); ?>
-                                                    </span>
-                                                </td>
-                                                <td><?php echo $row['cuotas']; ?></td>
-                                                <td><strong>$<?php echo number_format($monto_cuota, 2, ',', '.'); ?></strong></td>
-                                                <td><?php echo $estado_texto; ?></td>
-                                                <td>
-                                                    <div class="btn-group-vertical btn-group-sm" role="group">
-                                                        <a href="ver.php?id=<?php echo $row['id'] ?>" class="btn btn-outline-info btn-sm">
-                                                            👁️ Ver
-                                                        </a>
-                                                        <?php if ($_SESSION['tipo_usuario'] == 'jefe'): ?>
-                                                            <a href="editar.php?id=<?php echo $row['id'] ?>" class="btn btn-outline-warning btn-sm">
-                                                                ✏️ Editar
-                                                            </a>
-                                                        <?php endif; ?>
-                                                        <a href="estado_cuenta_pdf.php?id=<?php echo $row['id'] ?>" target="_blank" class="btn btn-outline-success btn-sm">
-                                                            📄 PDF
-                                                        </a>
-                                                        <?php if ($_SESSION['tipo_usuario'] == 'jefe'): ?>
-                                                            <a href="eliminar.php?id=<?php echo $row['id'] ?>" class="btn btn-outline-danger btn-sm" onclick="return confirmar();">
-                                                                🗑️ Eliminar
-                                                            </a>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                    <?php }
-                                    } else {
-                                        echo '<tr><td colspan="8" class="text-center text-success"><strong>✅ ¡Excelente! No hay clientes con pagos atrasados</strong></td></tr>';
-                                    }
-                                    ?>
-                                </tbody>
-                            </table>
-                        </div>
+                    <!-- ATRASADOS -->
+                    <div class="tab-pane fade" id="tab2">
+                        <?php renderTabla($atrasados, "Clientes con pagos atrasados", "", "table-danger"); ?>
                     </div>
-                </div>
 
-                <!-- TAB: CLIENTES FINALIZADOS - TERCERA PESTAÑA -->
-                <div class="tab-pane fade" id="finalizados" role="tabpanel">
-                    <h3 class="text-center mb-3 text-success">✅ Clientes Finalizados</h3>
-                    <div class="alert alert-success">
-                        <strong>¡Felicitaciones!</strong> Estos clientes han completado todos sus pagos.
-                    </div>
-                    <div class="table-responsive" style="max-height:420px; overflow:auto;">
-                        <table class="table table-bordered table-hover mb-0">
-                            <thead class="table-success">
-                                <tr>
-                                    <th>Nombre</th>
-                                    <th>Teléfono</th>
-                                    <th>Valor Total</th>
-                                    <th>Frecuencia</th>
-                                    <th>Cuotas</th>
-                                    <th>Por Cuota</th>
-                                    <th>Estado</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php
-                                if (count($clientes_finalizados) > 0) {
-                                    foreach ($clientes_finalizados as $row) {
-                                        $monto_cuota = $row['valor_total'] / $row['cuotas'];
-                                        $estado_texto = '<span class="badge bg-success">✅ Finalizado</span>';
-                                ?>
-                                        <tr>
-                                            <td><?php echo htmlspecialchars($row['nombre_completo']); ?></td>
-                                            <td><?php echo htmlspecialchars($row['telefono']); ?></td>
-                                            <td>$<?php echo number_format($row['valor_total'], 2, ',', '.'); ?></td>
-                                            <td>
-                                                <span class="badge bg-info">
-                                                    <?php echo ucfirst($row['frecuencia_pago']); ?>
-                                                </span>
-                                            </td>
-                                            <td><?php echo $row['cuotas']; ?></td>
-                                            <td><strong>$<?php echo number_format($monto_cuota, 2, ',', '.'); ?></strong></td>
-                                            <td><?php echo $estado_texto; ?></td>
-                                            <td>
-                                                <div class="btn-group-vertical btn-group-sm" role="group">
-                                                    <a href="ver.php?id=<?php echo $row['id'] ?>" class="btn btn-outline-info btn-sm">👁️ Ver</a>
-                                                    <?php if ($_SESSION['tipo_usuario'] == 'jefe'): ?>
-                                                        <a href="editar.php?id=<?php echo $row['id'] ?>" class="btn btn-outline-warning btn-sm">✏️ Editar</a>
-                                                    <?php endif; ?>
-                                                    <a href="estado_cuenta_pdf.php?id=<?php echo $row['id'] ?>" target="_blank" class="btn btn-outline-success btn-sm">📄 PDF</a>
-                                                    <?php if ($_SESSION['tipo_usuario'] == 'jefe'): ?>
-                                                        <a href="eliminar.php?id=<?php echo $row['id'] ?>" class="btn btn-outline-danger btn-sm" onclick="return confirmar();">🗑️ Eliminar</a>
-                                                    <?php endif; ?>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                <?php }
-                                } else {
-                                    echo '<tr><td colspan="8" class="text-center text-muted">No hay clientes finalizados</td></tr>';
-                                }
-                                ?>
-                            </tbody>
-                        </table>
+                    <!-- FINALIZADOS -->
+                    <div class="tab-pane fade" id="tab3">
+                        <?php renderTabla($finalizados, "Clientes finalizados", "", "table-success"); ?>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
 <script>
     // Calcular monto por cuota automáticamente
     function calcularMontoCuota() {

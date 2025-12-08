@@ -12,9 +12,9 @@ const App = {
     init() {
         this.setupEventListeners();
         this.initAnimations();
-        this.setupFormValidation();
-        this.initTooltips();
-        this.setupTableEnhancements();
+        // this.setupFormValidation(); // Validación avanzada de formularios (no se usa, ver explicación abajo)
+        // this.initTooltips(); // Inicializa tooltips Bootstrap en elementos con data-bs-toggle="tooltip" (no se usa, ver explicación abajo)
+        // this.setupTableEnhancements(); // Mejora tablas con búsqueda y paginación (no se usa, ver explicación abajo)
     },
 
     // ============================================
@@ -77,14 +77,18 @@ const App = {
         }, observerOptions);
 
         // Observar cards y elementos importantes
+        // .stat-card solo se usa en dashboard de estadísticas. Si no tienes dashboard, puedes ignorar este selector.
         document.querySelectorAll('.card, .stat-card, .alert').forEach(el => {
             observer.observe(el);
         });
 
         // Animar números (contador)
-        this.animateNumbers();
+        // this.animateNumbers(); // Animación de números en dashboard (solo útil si usas .stat-value en HTML)
     },
 
+    /*
+    // Animación de números en dashboard de estadísticas
+    // Requiere elementos con clase .stat-value en el HTML
     animateNumbers() {
         document.querySelectorAll('.stat-value').forEach(element => {
             const target = parseInt(element.textContent.replace(/[^0-9]/g, ''));
@@ -103,11 +107,15 @@ const App = {
             }
         });
     },
+    */
 
     // ============================================
     // VALIDACIÓN DE FORMULARIOS
     // ============================================
 
+    /*
+    // Validación avanzada de formularios
+    // Requiere formularios con atributos específicos y clases de Bootstrap
     setupFormValidation() {
         // Validación en tiempo real
         document.querySelectorAll('input[type="text"], input[type="tel"], input[type="number"]').forEach(input => {
@@ -150,24 +158,31 @@ const App = {
             });
         });
     },
+    */
 
     // ============================================
     // TOOLTIPS
     // ============================================
 
+    /*
+    // Inicializar tooltips de Bootstrap si existen
+    // Útil si usas tooltips en el HTML
     initTooltips() {
-        // Inicializar tooltips de Bootstrap si existen
         if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
             document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
                 new bootstrap.Tooltip(el);
             });
         }
     },
+    */
 
     // ============================================
     // MEJORAS DE TABLAS
     // ============================================
 
+    /*
+    // Mejora tablas con búsqueda y paginación
+    // Requiere tablas con clase .table-enhanced y un input .table-search en el HTML
     setupTableEnhancements() {
         // Resaltar fila al hacer hover
         document.querySelectorAll('.table tbody tr').forEach(row => {
@@ -192,6 +207,7 @@ const App = {
             }, 300));
         }
     },
+    */
 
     // ============================================
     // UTILIDADES
@@ -505,7 +521,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    console.log('✅ Sistema Mujeres Virtuosas S.A inicializado correctamente');
+    console.log('Sistema Mujeres Virtuosas S.A inicializado correctamente');
 });
 
 // ============================================
