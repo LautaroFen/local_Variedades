@@ -64,9 +64,9 @@ if (in_array(basename($_SERVER['PHP_SELF']), $paginas_con_navbar)):
         </div>
 
         <!-- Notificaciones SOLO en móviles -->
-        <div class="me-2 d-flex d-lg-none">
-            <?php include($base_path . 'includes/notificaciones_widget.php'); ?>
-        </div>
+            <div class="me-2 d-flex d-lg-none">
+                <?php $noti_id = 'notificationWidgetMobile'; include($base_path . 'includes/notificaciones_widget.php'); ?>
+            </div>
 
         <!-- Hamburguesa -->
         <button class="navbar-toggler" type="button"
@@ -85,9 +85,9 @@ if (in_array(basename($_SERVER['PHP_SELF']), $paginas_con_navbar)):
                 <ul class="navbar-nav ms-auto gap-lg-3 align-items-lg-center">
 
                     <!-- Notificaciones sólo en escritorio -->
-                    <li class="nav-item d-none d-lg-flex">
-                        <?php include($base_path . 'includes/notificaciones_widget.php'); ?>
-                    </li>
+                        <li class="nav-item d-none d-lg-flex">
+                            <?php $noti_id = 'notificationWidgetDesktop'; include($base_path . 'includes/notificaciones_widget.php'); ?>
+                        </li>
 
                     <!-- Dashboard -->
                     <li class="nav-item my-1 w-100">

@@ -150,8 +150,8 @@ $total_notificaciones = $count_atrasados + $count_finalizados + $count_proximos;
 }
 </style>
 
-<div class="notification-dropdown" id="notificationWidget">
-    <div class="notification-bell" onclick="toggleNotifications()">
+<div class="notification-dropdown" id="<?php echo isset($noti_id) ? $noti_id : 'notificationWidget'; ?>">
+    <div class="notification-bell" onclick="toggleNotifications('<?php echo isset($noti_id) ? $noti_id : 'notificationWidget'; ?>')">
         🔔
         <?php if ($total_notificaciones > 0): ?>
             <span class="notification-badge-bell"><?php echo $total_notificaciones; ?></span>
@@ -237,4 +237,16 @@ $total_notificaciones = $count_atrasados + $count_finalizados + $count_proximos;
 </div>
 
 <!-- JS personalizado movido a javascript/notificaciones_widget.js -->
-<script src="javascript/notificaciones_widget.js?v=<?php echo time(); ?>"></script>
+
+<script>
+function toggleNotifications(widgetId) {
+    var widget = document.getElementById(widgetId);
+    widget.classList.toggle('active');
+    // Cierra el menú si se hace click fuera
+    document.addEventListener('click', function(e) {
+        if (!widget.contains(e.target)) {
+            widget.classList.remove('active');
+        }
+    }, { once: true });
+}
+</script>
