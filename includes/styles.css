@@ -19,7 +19,7 @@
     --gradient-primary: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
     --gradient-success: linear-gradient(135deg, #10b981 0%, #059669 100%);
     --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-    
+
     /* Sombras */
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
@@ -41,30 +41,38 @@ body {
     flex-direction: column;
     min-height: 100vh;
     margin: 0;
-    /* OPCIÓN 1: Gradiente diagonal moderno (ACTUAL) */
-    /* background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); */
-    
-    /* OPCIÓN 2: Gradiente suave con múltiples colores */
-    /* background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%); */
-    
-    /* OPCIÓN 3: Fondo con patrón geométrico sutil */
-    /* background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    background-image: 
-        linear-gradient(135deg, #667eea 0%, #764ba2 100%),
-        repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.03) 35px, rgba(255,255,255,.03) 70px);
-     */
-    /* OPCIÓN 4: Gradiente con textura de puntos */
-    /* background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    background-image: 
-        radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.05) 0%, transparent 50%),
-        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.05) 0%, transparent 50%),
-        linear-gradient(135deg, #667eea 0%, #764ba2 100%);  */
-    /* Fondo oscuro elegante en tonos violetas - evita saltos de línea */
     background: linear-gradient(135deg, #4c1d95 0%, #5b21b6 50%, #6d28d9 100%);
     background-attachment: fixed;
     
     font-family: 'Inter', sans-serif;
     padding: 0;
+}
+
+/* Evitar arrastrar imágenes */
+img {
+    -webkit-user-drag: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Evitar arrastrar/seleccionar el logo del navbar */
+.navbar-brand,
+.navbar-brand * {
+    -webkit-user-drag: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Cursor estático (no cambia a texto/manito) */
+.cursor-static,
+.cursor-static * {
+    cursor: default !important;
+}
+
+/* Banners de título (dashboard/index/vendedores) */
+.page-title-banner,
+.page-title-banner * {
+    cursor: default !important;
 }
 
 html,
@@ -75,6 +83,9 @@ body {
 /* El contenedor principal empuja el footer hacia abajo */
 main {
     flex: 1 0 auto;
+}
+h1{
+    letter-spacing: 2px; text-shadow: 0 2px 8px #0002;
 }
 /* UNUSED - main-container class not used in any PHP file */
 /* Contenedor principal con fondo blanco */
@@ -127,7 +138,7 @@ main {
 }
 
 /* UNUSED - stat card animations and icons not used in current implementation */
-/* .stat-card::before {
+ .stat-card::before {
     content: '';
     position: absolute;
     top: -50%;
@@ -137,13 +148,13 @@ main {
     background: rgba(255, 255, 255, 0.1);
     border-radius: 50%;
     transition: all 0.5s ease;
-} */
+} 
 
-/* .stat-card:hover::before {
+ .stat-card:hover::before {
     transform: scale(1.2);
-} */
+} 
 
-/* .stat-card .stat-icon {
+.stat-card .stat-icon {
     font-size: 3rem;
     opacity: 0.3;
     position: absolute;
@@ -1145,112 +1156,7 @@ html {
 /* ======================================
    SISTEMA DE NOTIFICACIONES
    ====================================== */
-
-.notification-dropdown {
-    position: relative;
-}
-
-.notification-bell {
-    position: relative;
-    cursor: pointer;
-    font-size: 1.5rem;
-    padding: 0.5rem;
-    border-radius: 50%;
-    transition: all 0.3s ease;
-}
-
-.notification-bell:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.notification-badge-bell {
-    position: absolute;
-    top: 0;
-    right: 0;
-    background: #ef4444;
-    color: white;
-    border-radius: 50%;
-    width: 18px;
-    height: 18px;
-    font-size: 0.7rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    animation: pulse-bell 2s infinite;
-}
-
-@keyframes pulse-bell {
-    0%, 100% {
-        transform: scale(1);
-    }
-    50% {
-        transform: scale(1.2);
-    }
-}
-
-.notification-dropdown-menu {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-    min-width: 350px;
-    max-width: 400px;
-    z-index: 1000;
-    display: none;
-    margin-top: 0.5rem;
-    overflow: hidden;
-}
-
-.notification-dropdown.active .notification-dropdown-menu {
-    display: block;
-    animation: slideDown 0.3s ease;
-}
-
-@keyframes slideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.notification-header-widget {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 1rem;
-    font-weight: bold;
-}
-
-.notification-item-widget {
-    padding: 1rem;
-    border-bottom: 1px solid #e5e7eb;
-    transition: background 0.2s ease;
-    cursor: pointer;
-}
-
-.notification-item-widget:hover {
-    background: #f9fafb;
-}
-
-.notification-item-widget:last-child {
-    border-bottom: none;
-}
-
-.notification-footer-widget {
-    padding: 0.75rem;
-    text-align: center;
-    background: #f9fafb;
-    border-top: 1px solid #e5e7eb;
-}
-
-
-
+   
 .list-group-item {
     transition: all 0.2s ease;
     border-left: 3px solid transparent;

@@ -107,17 +107,14 @@ $resultado_finalizados_recientes = mysqli_query($conn, $query_finalizados_recien
 include("includes/header.php");
 ?>
 <main>
-    <div class="container my-5">
-        <!-- Header -->
-        <div class="row mb-5">
-            <div class="col-12">
-                <div class="text-center">
-                    <h1 class="mb-2 text-white">📊 Estadisticas</h1>
-                    <p class="text-white">Panel de control con métricas del negocio</p>
-                </div>
-            </div>
-        </div>
 
+    <div class="container my-5">
+
+        <div class="d-flex align-items-center justify-content-between mb-4 page-title-banner" style="background: linear-gradient(135deg, #2563eb 0%, #1486e2 100%); border-radius: 1rem; padding: 1.2rem 1rem; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
+            <i class="bi bi-bar-chart-line display-4 text-white flex-shrink-0" style="text-shadow: 0 2px 8px #0002;"></i>
+            <h1 class="mb-0 text-white fw-bold text-uppercase flex-grow-1 text-center">Estadísticas</h1>
+            <i class="bi bi-bar-chart-line display-4 text-white flex-shrink-0" style="text-shadow: 0 2px 8px #0002;"></i>
+        </div>
         <!-- TARJETAS DE ESTADÍSTICAS -->
         <div class="row mb-4 g-4">
             <!-- Total Clientes -->
@@ -128,7 +125,7 @@ include("includes/header.php");
                     <div class="stat-label">Total Clientes</div>
                     <hr style="border-color: rgba(255,255,255,0.3); margin: 1rem 0;">
                     <div class="d-flex justify-content-between">
-                        <small>✅ Finalizados: <?php echo $clientes_finalizados; ?></small>
+                        <small><i class="bi bi-check-lg me-1"></i>Finalizados: <?php echo $clientes_finalizados; ?></small>
                         <small>⏳ Activos: <?php echo $clientes_activos; ?></small>
                     </div>
                 </div>
@@ -148,7 +145,7 @@ include("includes/header.php");
             <!-- Dinero Cobrado -->
             <div class="col-md-6 col-lg-3">
                 <div class="stat-card hover-lift" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-                    <div class="stat-icon">✅</div>
+                    <div class="stat-icon"><i class="bi bi-check-circle-fill"></i></div>
                     <div class="stat-value">$<?php echo number_format($dinero_cobrado, 0, ',', '.'); ?></div>
                     <div class="stat-label">Dinero Cobrado</div>
                     <hr style="border-color: rgba(255,255,255,0.3); margin: 1rem 0;">
@@ -211,14 +208,14 @@ include("includes/header.php");
                 <div class="card hover-lift" style="border-left: 4px solid #ef4444;">
                     <div class="card-header" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white;">
                         <h5 class="mb-0">
-                            <i class="bi bi-exclamation-triangle-fill"></i> 🚨 Clientes con Pagos Atrasados
+                            <i class="bi bi-exclamation-triangle-fill"></i> Clientes con Pagos Atrasados
                             <span class="badge bg-white text-danger float-end"><?php echo mysqli_num_rows($resultado_atrasados_detalle); ?></span>
                         </h5>
                     </div>
                     <div class="card-body p-0" style="max-height: 400px; overflow-y: auto;">
                         <?php if (mysqli_num_rows($resultado_atrasados_detalle) > 0): ?>
                             <div class="list-group list-group-flush">
-                                <?php while ($atrasado = mysqli_fetch_assoc($resultado_atrasados_detalle)): 
+                                <?php while ($atrasado = mysqli_fetch_assoc($resultado_atrasados_detalle)):
                                     $dias_atraso = (strtotime('today') - strtotime($atrasado['fecha_mas_antigua'])) / 86400;
                                 ?>
                                     <div class="list-group-item list-group-item-action">
@@ -229,7 +226,7 @@ include("includes/header.php");
                                                 </h6>
                                                 <p class="mb-1 text-muted">
                                                     <small>
-                                                        📞 <?php echo htmlspecialchars($atrasado['telefono']); ?> | 
+                                                        📞 <?php echo htmlspecialchars($atrasado['telefono']); ?> |
                                                         📍 <?php echo htmlspecialchars($atrasado['barrio']); ?>
                                                     </small>
                                                 </p>
@@ -248,9 +245,9 @@ include("includes/header.php");
                                                 </h5>
                                                 <small class="text-muted">Deuda</small>
                                                 <div class="mt-2">
-                                                    <a href="ver.php?id=<?php echo $atrasado['id']; ?>" 
-                                                       class="btn btn-sm btn-outline-primary" 
-                                                       title="Ver detalles">
+                                                    <a href="ver.php?id=<?php echo $atrasado['id']; ?>"
+                                                        class="btn btn-sm btn-outline-primary"
+                                                        title="Ver detalles">
                                                         👁️ Ver
                                                     </a>
                                                 </div>
@@ -261,7 +258,7 @@ include("includes/header.php");
                             </div>
                         <?php else: ?>
                             <div class="text-center py-5">
-                                <div class="fs-1 mb-3">✅</div>
+                                <div class="fs-1 mb-3"><i class="bi bi-check-circle-fill"></i></div>
                                 <h6 class="text-muted">¡Excelente! No hay pagos atrasados</h6>
                                 <p class="text-muted mb-0">Todos los clientes están al día</p>
                             </div>
@@ -282,14 +279,14 @@ include("includes/header.php");
                 <div class="card hover-lift" style="border-left: 4px solid #10b981;">
                     <div class="card-header" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white;">
                         <h5 class="mb-0">
-                            <i class="bi bi-check-circle-fill"></i> 🎉 Clientes que Finalizaron sus Pagos
+                            <i class="bi bi-check-circle-fill"></i> Clientes que Finalizaron sus Pagos
                             <span class="badge bg-white text-success float-end"><?php echo mysqli_num_rows($resultado_finalizados_recientes); ?></span>
                         </h5>
                     </div>
                     <div class="card-body p-0" style="max-height: 400px; overflow-y: auto;">
                         <?php if (mysqli_num_rows($resultado_finalizados_recientes) > 0): ?>
                             <div class="list-group list-group-flush">
-                                <?php while ($finalizado = mysqli_fetch_assoc($resultado_finalizados_recientes)): 
+                                <?php while ($finalizado = mysqli_fetch_assoc($resultado_finalizados_recientes)):
                                     $dias_desde_finalizacion = (strtotime('today') - strtotime($finalizado['fecha_ultimo_pago'])) / 86400;
                                 ?>
                                     <div class="list-group-item list-group-item-action">
@@ -300,13 +297,13 @@ include("includes/header.php");
                                                 </h6>
                                                 <p class="mb-1 text-muted">
                                                     <small>
-                                                        📞 <?php echo htmlspecialchars($finalizado['telefono']); ?> | 
+                                                        📞 <?php echo htmlspecialchars($finalizado['telefono']); ?> |
                                                         📍 <?php echo htmlspecialchars($finalizado['barrio']); ?>
                                                     </small>
                                                 </p>
                                                 <div class="mt-2">
                                                     <span class="badge bg-success">
-                                                        ✅ Pagos completados
+                                                        <i class="bi bi-check-lg me-1"></i>Pagos completados
                                                     </span>
                                                     <span class="badge bg-info text-dark">
                                                         Hace <?php echo round($dias_desde_finalizacion); ?> día(s)
@@ -319,9 +316,9 @@ include("includes/header.php");
                                                 </h5>
                                                 <small class="text-muted">Total cobrado</small>
                                                 <div class="mt-2">
-                                                    <a href="ver.php?id=<?php echo $finalizado['id']; ?>" 
-                                                       class="btn btn-sm btn-outline-success" 
-                                                       title="Ver detalles">
+                                                    <a href="ver.php?id=<?php echo $finalizado['id']; ?>"
+                                                        class="btn btn-sm btn-outline-success"
+                                                        title="Ver detalles">
                                                         👁️ Ver
                                                     </a>
                                                 </div>
@@ -383,7 +380,7 @@ include("includes/header.php");
             <div class="col-12">
                 <div class="card hover-lift">
                     <div class="card-header">
-                        <h5 class="mb-0">🔝 Top 5 - Clientes con Mayor Deuda Pendiente</h5>
+                        <h5 class="mb-0">Top 5 - Clientes con Mayor Deuda Pendiente</h5>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
@@ -403,7 +400,9 @@ include("includes/header.php");
                                         while ($row = mysqli_fetch_assoc($resultado_top_deuda)):
                                     ?>
                                             <tr>
-                                                <td><div class="badge bg-primary"><?php echo $posicion++; ?></div></td>
+                                                <td>
+                                                    <div class="badge bg-primary"><?php echo $posicion++; ?></div>
+                                                </td>
                                                 <td><strong><?php echo htmlspecialchars($row['nombre_completo']); ?></strong></td>
                                                 <td><?php echo htmlspecialchars($row['telefono']); ?></td>
                                                 <td><strong class="text-danger fs-5">$<?php echo number_format($row['deuda_total'], 2, ',', '.'); ?></strong></td>
@@ -411,7 +410,7 @@ include("includes/header.php");
                                     <?php
                                         endwhile;
                                     } else {
-                                        echo '<tr><td colspan="4" class="text-center text-muted py-4">✅ No hay deudas pendientes</td></tr>';
+                                        echo '<tr><td colspan="4" class="text-center text-muted py-4"><i class="bi bi-check-lg me-1"></i>No hay deudas pendientes</td></tr>';
                                     }
                                     ?>
                                 </tbody>
@@ -425,8 +424,8 @@ include("includes/header.php");
         <!-- BOTONES DE ACCIÓN -->
         <div class="row mt-5">
             <div class="col-12 text-center">
-                <a href="index.php" class="btn btn-primary btn-lg me-2">🏠 Volver al Inicio</a>
-                <a href="exportar_excel.php" class="btn btn-success btn-lg">📥 Exportar a Excel</a>
+                <a href="index.php" class="btn btn-primary btn-lg me-2">Volver al Inicio</a>
+                <a href="exportar_excel.php" class="btn btn-success btn-lg">Exportar a Excel</a>
             </div>
         </div>
     </div>

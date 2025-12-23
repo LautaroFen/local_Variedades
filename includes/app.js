@@ -11,10 +11,38 @@
 const App = {
     init() {
         this.setupEventListeners();
+        this.disableImageDragging();
         this.initAnimations();
-        // this.setupFormValidation(); // Validación avanzada de formularios (no se usa, ver explicación abajo)
-        // this.initTooltips(); // Inicializa tooltips Bootstrap en elementos con data-bs-toggle="tooltip" (no se usa, ver explicación abajo)
-        // this.setupTableEnhancements(); // Mejora tablas con búsqueda y paginación (no se usa, ver explicación abajo)
+        this.animateNumbers();
+        this.setupFormValidation();
+        this.initTooltips(); 
+        this.setupTableEnhancements(); 
+    },
+
+    disableImageDragging() {
+        document.querySelectorAll('img').forEach(img => {
+            img.setAttribute('draggable', 'false');
+        });
+
+        // Evitar drag del link del logo (algunos navegadores inician drag en <a> en lugar de <img>)
+        document.querySelectorAll('a.navbar-brand').forEach(a => {
+            a.setAttribute('draggable', 'false');
+        });
+
+        document.addEventListener('dragstart', (e) => {
+            const target = e.target;
+            if (!target) return;
+
+            if (target.tagName === 'IMG') {
+                e.preventDefault();
+                return;
+            }
+
+            const navbarBrand = target.closest ? target.closest('a.navbar-brand') : null;
+            if (navbarBrand) {
+                e.preventDefault();
+            }
+        }, true);
     },
 
     // ============================================
@@ -24,7 +52,7 @@ const App = {
     setupEventListeners() {
         // Smooth scroll para links internos
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function(e) {
+            anchor.addEventListener('click', function (e) {
                 e.preventDefault();
                 const target = document.querySelector(this.getAttribute('href'));
                 if (target) {
@@ -42,15 +70,17 @@ const App = {
             }, 5000);
         });
 
-        // Confirmar eliminación con estilo
-        document.querySelectorAll('[onclick*="confirmar"]').forEach(btn => {
-            btn.addEventListener('click', function(e) {
-                if (!this.getAttribute('data-confirmed')) {
-                    e.preventDefault();
-                    if (App.showConfirmDialog('¿Estás seguro de eliminar este registro?')) {
-                        this.setAttribute('data-confirmed', 'true');
-                        this.click();
-                    }
+        // Confirmaciones centralizadas (evita duplicar confirm() inline)
+        document.querySelectorAll('[data-confirm]').forEach(el => {
+            el.addEventListener('click', function (e) {
+                if (this.getAttribute('data-confirmed') === 'true') return;
+
+                const message = this.getAttribute('data-confirm') || '¿Estás seguro de continuar?';
+                e.preventDefault();
+
+                if (App.showConfirmDialog(message)) {
+                    this.setAttribute('data-confirmed', 'true');
+                    this.click();
                 }
             });
         });
@@ -83,10 +113,10 @@ const App = {
         });
 
         // Animar números (contador)
-        // this.animateNumbers(); // Animación de números en dashboard (solo útil si usas .stat-value en HTML)
+        this.animateNumbers(); // Animación de números en dashboard (solo útil si usas .stat-value en HTML)
     },
 
-    /*
+    
     // Animación de números en dashboard de estadísticas
     // Requiere elementos con clase .stat-value en el HTML
     animateNumbers() {
@@ -107,19 +137,17 @@ const App = {
             }
         });
     },
-    */
+    
 
     // ============================================
     // VALIDACIÓN DE FORMULARIOS
     // ============================================
-
-    /*
     // Validación avanzada de formularios
     // Requiere formularios con atributos específicos y clases de Bootstrap
     setupFormValidation() {
         // Validación en tiempo real
         document.querySelectorAll('input[type="text"], input[type="tel"], input[type="number"]').forEach(input => {
-            input.addEventListener('input', function() {
+            input.addEventListener('input', function () {
                 this.classList.remove('is-invalid');
                 if (this.validity.valid) {
                     this.classList.add('is-valid');
@@ -128,16 +156,17 @@ const App = {
                 }
             });
 
-            input.addEventListener('blur', function() {
-                if (!this.validity.valid && this.value !== '') {
+            input.addEventListener('blur', function () {
+                if (!this.validity.valid) {
                     this.classList.add('is-invalid');
+                    // Ya no se llama a reportValidity aquí
                 }
             });
         });
 
         // Prevenir caracteres no permitidos en teléfono
         document.querySelectorAll('input[type="tel"], input[inputmode="numeric"]').forEach(input => {
-            input.addEventListener('keypress', function(e) {
+            input.addEventListener('keypress', function (e) {
                 if (!/\d/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab') {
                     e.preventDefault();
                 }
@@ -146,11 +175,10 @@ const App = {
 
         // Formatear números con separadores de miles
         document.querySelectorAll('input[type="number"]').forEach(input => {
-            input.addEventListener('blur', function() {
+            input.addEventListener('blur', function () {
                 if (this.value) {
                     const value = parseFloat(this.value);
                     if (!isNaN(value)) {
-                        // Mostrar feedback visual del valor formateado
                         const formatted = value.toLocaleString('es-AR');
                         this.setAttribute('data-formatted', formatted);
                     }
@@ -158,13 +186,11 @@ const App = {
             });
         });
     },
-    */
+
 
     // ============================================
     // TOOLTIPS
     // ============================================
-
-    /*
     // Inicializar tooltips de Bootstrap si existen
     // Útil si usas tooltips en el HTML
     initTooltips() {
@@ -174,13 +200,11 @@ const App = {
             });
         }
     },
-    */
+
 
     // ============================================
     // MEJORAS DE TABLAS
     // ============================================
-
-    /*
     // Mejora tablas con búsqueda y paginación
     // Requiere tablas con clase .table-enhanced y un input .table-search en el HTML
     setupTableEnhancements() {
@@ -198,21 +222,46 @@ const App = {
         const searchInput = document.querySelector('input[name="buscar"]');
         if (searchInput) {
             searchInput.addEventListener('input', App.debounce(function() {
-                // Visual feedback mientras busca
-                const icon = this.nextElementSibling;
-                if (icon) {
-                    icon.classList.add('animate-pulse');
-                    setTimeout(() => icon.classList.remove('animate-pulse'), 500);
-                }
+                // Guardar el tab activo antes de buscar
+                const activeTab = document.querySelector('.nav-link.active[data-bs-toggle="tab"]');
+                const activeTarget = activeTab ? activeTab.getAttribute('data-bs-target') : null;
+
+                // Búsqueda en tiempo real con AJAX
+                const value = this.value;
+                const url = new URL(window.location.href);
+                url.searchParams.set('buscar', value);
+                // Mantener otros filtros si existen
+                document.querySelectorAll('#formBusqueda input, #formBusqueda select').forEach(el => {
+                    if (el.name !== 'buscar' && el.value) {
+                        url.searchParams.set(el.name, el.value);
+                    }
+                });
+                fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(res => res.text())
+                    .then(html => {
+                        // Reemplazar solo la grilla de resultados
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        const nuevaTabla = doc.querySelector('#grilla-compras');
+                        const actualTabla = document.querySelector('#grilla-compras');
+                        if (nuevaTabla && actualTabla) {
+                            actualTabla.innerHTML = nuevaTabla.innerHTML;
+                        }
+                        // Restaurar el tab activo
+                        if (activeTarget) {
+                            const tabBtn = document.querySelector(`button[data-bs-target='${activeTarget}']`);
+                            if (tabBtn) tabBtn.click();
+                        }
+                    });
             }, 300));
         }
+
+
     },
-    */
 
     // ============================================
     // UTILIDADES
     // ============================================
-
     showConfirmDialog(message) {
         return confirm(message);
     },
@@ -248,7 +297,11 @@ const App = {
         toast.innerHTML = `
             <div class="d-flex align-items-center">
                 <div class="me-3">
-                    ${type === 'success' ? '✅' : type === 'error' ? '❌' : '⚠️'}
+                    ${type === 'success'
+                        ? '<i class="bi bi-check-circle-fill"></i>'
+                        : type === 'error'
+                            ? '<i class="bi bi-x-circle-fill"></i>'
+                            : '<i class="bi bi-exclamation-triangle-fill"></i>'}
                 </div>
                 <div>${message}</div>
             </div>
@@ -302,15 +355,15 @@ function calcularMontoCuota() {
     const valorTotal = parseFloat(document.getElementById('valor_total')?.value) || 0;
     const sena = parseFloat(document.getElementById('sena')?.value) || 0;
     const cuotas = parseInt(document.getElementById('cuotas')?.value) || 1;
-    
+
     if (sena > valorTotal) {
         document.getElementById('sena').value = valorTotal;
         App.showToast('La seña no puede ser mayor al valor total', 'warning');
         return;
     }
-    
+
     const saldoRestante = valorTotal - sena;
-    
+
     if (saldoRestante > 0 && cuotas > 0) {
         const montoCuota = saldoRestante / cuotas;
         const montoCuotaEl = document.getElementById('monto-cuota');
@@ -334,18 +387,18 @@ const DropdownManager = {
     setupDropdowns() {
         // Obtener todos los botones dropdown
         const dropdownButtons = document.querySelectorAll('[data-bs-toggle="dropdown"]');
-        
+
         dropdownButtons.forEach(button => {
             button.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                
+
                 const menu = button.nextElementSibling;
                 const isOpen = menu && menu.classList.contains('show');
-                
+
                 // Cerrar todos los dropdowns abiertos
                 this.closeAllDropdowns();
-                
+
                 // Toggle del dropdown actual (si no estaba abierto, abrirlo)
                 if (!isOpen && menu && menu.classList.contains('dropdown-menu')) {
                     this.openDropdown(button, menu);
@@ -383,12 +436,12 @@ const DropdownManager = {
     openDropdown(button, menu) {
         menu.classList.add('show');
         button.setAttribute('aria-expanded', 'true');
-        
+
         // Posicionar el menú después de que se muestre
         setTimeout(() => {
             this.positionMenu(button, menu);
         }, 10);
-        
+
         // Animación de entrada
         menu.style.animation = 'slideDown 0.2s ease';
     },
@@ -412,27 +465,27 @@ const DropdownManager = {
         const buttonRect = button.getBoundingClientRect();
         const viewportHeight = window.innerHeight;
         const viewportWidth = window.innerWidth;
-        
+
         // Verificar si está dentro de una tabla con scroll
         const isInTableResponsive = button.closest('.table-responsive');
-        
+
         if (isInTableResponsive) {
             // Posicionamiento fijo para tablas con scroll
             const menuWidth = 180; // ancho mínimo del menú
             const menuHeight = menu.scrollHeight || 200;
-            
+
             // Calcular posición vertical
             let top = buttonRect.bottom + 8;
             if (top + menuHeight > viewportHeight - 20) {
                 top = buttonRect.top - menuHeight - 8;
             }
-            
+
             // Calcular posición horizontal (siempre a la izquierda del botón)
             let left = buttonRect.right - menuWidth;
             if (left < 10) {
                 left = buttonRect.left;
             }
-            
+
             menu.style.position = 'fixed';
             menu.style.top = top + 'px';
             menu.style.left = left + 'px';
@@ -441,19 +494,19 @@ const DropdownManager = {
         } else {
             // Posicionamiento normal (absoluto)
             menu.style.position = 'absolute';
-            
+
             // Resetear
             menu.style.top = '';
             menu.style.bottom = '';
             menu.style.left = '';
             menu.style.right = '';
-            
+
             const menuRect = menu.getBoundingClientRect();
-            
+
             // Alinear a la derecha por defecto
             menu.style.right = '0';
             menu.style.left = 'auto';
-            
+
             // Verificar si se sale por abajo
             if (buttonRect.bottom + menuRect.height > viewportHeight - 20) {
                 menu.style.top = 'auto';
@@ -472,10 +525,10 @@ const DropdownManager = {
 // INICIALIZACIÓN AL CARGAR EL DOM
 // ============================================
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Inicializar aplicación
     App.init();
-    
+
     // Inicializar sistema de dropdowns
     DropdownManager.init();
 
@@ -491,19 +544,19 @@ document.addEventListener('DOMContentLoaded', function() {
     // Prevenir envío de formularios múltiples veces (solo para ciertos formularios)
     document.querySelectorAll('form[data-prevent-double-submit]').forEach(form => {
         let isSubmitting = false;
-        form.addEventListener('submit', function(e) {
+        form.addEventListener('submit', function (e) {
             if (isSubmitting) {
                 e.preventDefault();
                 return false;
             }
-            
+
             const submitBtn = this.querySelector('button[type="submit"], input[type="submit"]');
             if (submitBtn) {
                 isSubmitting = true;
                 submitBtn.disabled = true;
                 const originalText = submitBtn.innerHTML;
                 submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
-                
+
                 // Reactivar después de 5 segundos por seguridad (en caso de error del servidor)
                 setTimeout(() => {
                     isSubmitting = false;

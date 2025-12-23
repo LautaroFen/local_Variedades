@@ -97,7 +97,7 @@ if (isset($_POST['actualizar'])) {
         mysqli_stmt_bind_param($stmt, 'sssssddsii', $nombre_completo, $telefono, $barrio, $direccion, $articulos, $valor_total, $sena, $frecuencia_pago, $cuotas, $id);
         mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
-        
+
         // Registrar en auditorÃ­a
         if (isset($_SESSION['usuario'])) {
             $stmt_audit = mysqli_prepare($conn, "INSERT INTO auditoria (usuario, accion, tabla, registro_id, detalles) VALUES (?, 'EDITAR', 'clientes', ?, ?)");
@@ -109,8 +109,7 @@ if (isset($_POST['actualizar'])) {
     }
 
     $_SESSION['message'] = "El cliente se actualizo correctamente";
-
-    header("location: index.php");
+    header('Location: editar.php?id=' . $id);
 }
 
 ?>
@@ -120,56 +119,79 @@ if (isset($_POST['actualizar'])) {
 <main>
 
     <div class="container p-4">
+        <div class="col-12 ">
+            <div class="card w-100">
+                <div class="card-header w-100">
+                    <h5 class="mb-0">Editar Compra</h5>
+                </div>
+                <div class="card-body">
+                    <?php if (isset($_SESSION['message'])): ?>
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <?php
+                            echo htmlspecialchars($_SESSION['message']);
+                            unset($_SESSION['message']);
+                            ?>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                         </div>
-        <!-- JS personalizado movido a javascript/editar.js -->
-        <script src="javascript/editar.js?v=<?php echo time(); ?>"></script>
-                            </div>
-                            <div class="col-md-6 mb-2">
-                                <input type="number" name="sena" id="sena_edit" value="<?php echo htmlspecialchars($sena); ?>" class="form-control" placeholder="Seña / Adelanto" step="0.01" min="0" autocomplete="off">
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-2">
-                                <select name="frecuencia_pago" class="form-control" required autocomplete="off">
-                                    <option value="">Frecuencia de pago</option>
-                                    <option value="semanal" <?php echo ($frecuencia_pago == 'semanal') ? 'selected' : ''; ?>>Semanal</option>
-                                    <option value="quincenal" <?php echo ($frecuencia_pago == 'quincenal') ? 'selected' : ''; ?>>Quincenal</option>
-                                    <option value="mensual" <?php echo ($frecuencia_pago == 'mensual') ? 'selected' : ''; ?>>Mensual</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6 mb-2">
-                                <input type="number" name="cuotas" id="cuotas_edit" value="<?php echo htmlspecialchars($cuotas); ?>" class="form-control" placeholder="Número de cuotas" min="1" max="60" required autocomplete="off">
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Monto por cuota</label>
-                            <div id="monto_cuota_display_edit" class="form-control bg-light" style="font-weight: bold; color: #28a745;">
-                                $<?php 
-                                    $saldo = $valor_total - $sena;
-                                    echo number_format($saldo / $cuotas, 2, ',', '.'); 
-                                ?>
-                            </div>
-                        </div>
-                        <a href="index.php" type="button" class="btn btn-secondary">Volver a inicio</a>
+                    <?php endif; ?>
 
-                        <button class="btn btn-success btn-block float-end" name="actualizar">Actualizar</button>
+                    <!--Actualizar con metodo POST-->
+                    <form class="form-group mb-2" action="editar.php?id=<?php echo $_GET['id']; ?>" method="POST" autocomplete="off">
+                        <label class="form-label" class="form-label">Nombre completo</label>
+                        <input type="text" name="nombre_completo" value="<?php echo htmlspecialchars($nombre_completo); ?>" class="form-control mb-3" placeholder="Nombre completo" pattern="[A-Za-zÀ-ÖØ-öø-ÿ\s]+" required title="Solo letras y espacios" autocomplete="off">
+
+                        <label class="form-label" class="form-label">Teléfono</label>
+                        <input type="text" name="telefono" value="<?php echo htmlspecialchars($telefono); ?>" class="form-control mb-3" placeholder="Teléfono" pattern="\d{10,15}" inputmode="numeric" minlength="10" maxlength="15" required title="Entre 10 y 15 dígitos" autocomplete="off">
+
+                        <label class="form-label" class="form-label">Barrio</label>
+                        <input type="text" name="barrio" value="<?php echo htmlspecialchars($barrio); ?>" class="form-control mb-3" placeholder="Barrio" required autocomplete="off">
+
+                        <label class="form-label" class="form-label">Dirección</label>
+                        <input type="text" name="direccion" value="<?php echo htmlspecialchars($direccion); ?>" class="form-control mb-3" placeholder="Dirección" required autocomplete="off">
+
+                        <label class="form-label" class="form-label">Artículos</label>
+                        <textarea name="articulos" class="form-control" placeholder="Artículos que compra" maxlength="500" rows="3" required autocomplete="off"><?php echo htmlspecialchars($articulos); ?></textarea>
+                        <small class="text-muted">Maximo 500 caracteres</small><br>
+
+                        <label class="form-label mt-3" class="form-label">Valor total</label>
+                        <input type="number" name="valor_total" id="valor_total_edit" value="<?php echo htmlspecialchars($valor_total); ?>" class="form-control mb-3" placeholder="Valor total" step="0.01" min="0.01" required autocomplete="off">
+
+                        <label class="form-label" class="form-label">Seña / Adelanto</label>
+                        <input type="number" name="sena" id="sena_edit" value="<?php echo htmlspecialchars($sena); ?>" class="form-control mb-3" placeholder="Seña / Adelanto" step="0.01" min="0" autocomplete="off">
+
+                        <!-- <select name="frecuencia_pago" class="form-control" required autocomplete="off">
+                                <option value="">Frecuencia de pago</option>
+                                <option value="semanal" <?php echo ($frecuencia_pago == 'semanal') ? 'selected' : ''; ?>>Semanal</option>
+                                <option value="quincenal" <?php echo ($frecuencia_pago == 'quincenal') ? 'selected' : ''; ?>>Quincenal</option>
+                                <option value="mensual" <?php echo ($frecuencia_pago == 'mensual') ? 'selected' : ''; ?>>Mensual</option>
+                            </select>
+                            <input type="number" name="cuotas" id="cuotas_edit" value="<?php echo htmlspecialchars($cuotas); ?>" class="form-control" placeholder="Número de cuotas" min="1" max="60" required autocomplete="off"> -->
+                        <label class="form-label">Monto por cuota</label>
+                        <div id="monto_cuota_display_edit" class="form-control bg-light" style="font-weight: bold; color: #28a745;">
+                            $<?php
+                                $saldo = $valor_total - $sena;
+                                echo number_format($saldo / $cuotas, 2, ',', '.');
+                                ?>
+                        </div>
+                        <button type="submit" class="btn btn-success btn-block float-end mt-3" name="actualizar">Actualizar</button>
                     </form>
-                    
+                    <a href="index.php" type="button" class="btn btn-secondary mt-2">Volver a inicio</a>
+
                     <!-- Sección para editar pagos -->
                     <hr class="my-4">
                     <h4 class="mb-3">Gestionar fechas de pago</h4>
-                    
+
                     <?php
                     // Obtener pagos del cliente
                     if (isset($id)) {
                         $query_pagos = "SELECT * FROM pagos_clientes WHERE cliente_id = $id ORDER BY numero_cuota ASC";
                         $resultado_pagos = mysqli_query($conn, $query_pagos);
-                        
+
                         if ($resultado_pagos && mysqli_num_rows($resultado_pagos) > 0) {
-                            ?>
+                    ?>
                             <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
                                 <table class="table table-bordered table-sm">
-                                    <thead class="table-light sticky-top">
+                                    <thead class="table-dark">
                                         <tr>
                                             <th>Cuota</th>
                                             <th>Fecha programada</th>
@@ -178,41 +200,41 @@ if (isset($_POST['actualizar'])) {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <?php while ($pago = mysqli_fetch_assoc($resultado_pagos)) { 
+                                        <?php while ($pago = mysqli_fetch_assoc($resultado_pagos)) {
                                             $estado_class = $pago['estado'] == 'pagado' ? 'success' : 'warning';
                                             $estado_texto = $pago['estado'] == 'pagado' ? 'Pagado' : 'Pendiente';
                                         ?>
-                                        <tr class="table-<?php echo $estado_class; ?>">
-                                            <td><strong><?php echo $pago['numero_cuota']; ?></strong></td>
-                                            <td>
-                                                <form method="POST" action="editar_fecha_pago.php" class="d-inline">
-                                                    <input type="hidden" name="pago_id" value="<?php echo $pago['id']; ?>">
-                                                    <input type="hidden" name="cliente_id" value="<?php echo $id; ?>">
-                                                    <input type="date" name="nueva_fecha" value="<?php echo $pago['fecha_programada']; ?>" class="form-control form-control-sm d-inline" style="width: auto; display: inline-block;" required>
-                                                    <button type="submit" class="btn btn-primary btn-sm" title="Guardar nueva fecha">
-                                                        Guardar
-                                                    </button>
-                                                </form>
-                                            </td>
-                                            <td>
-                                                <span class="badge bg-<?php echo $estado_class; ?>">
-                                                    <?php echo $estado_texto; ?>
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <?php if ($pago['estado'] == 'pagado'): ?>
-                                                    <form method="POST" action="cancelar_pago.php" style="display: inline;">
+                                            <tr class="table-<?php echo $estado_class; ?>">
+                                                <td><strong><?php echo $pago['numero_cuota']; ?></strong></td>
+                                                <td>
+                                                    <form method="POST" action="editar_fecha_pago.php" class="d-inline">
                                                         <input type="hidden" name="pago_id" value="<?php echo $pago['id']; ?>">
                                                         <input type="hidden" name="cliente_id" value="<?php echo $id; ?>">
-                                                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('¿Cancelar este pago?')" title="Cancelar pago">
-                                                            Cancelar
+                                                        <input type="date" name="nueva_fecha" value="<?php echo $pago['fecha_programada']; ?>" class="form-control form-control-sm d-inline" style="width: auto; display: inline-block;" required>
+                                                        <button type="submit" class="btn btn-primary btn-sm" title="Guardar nueva fecha">
+                                                            Guardar
                                                         </button>
                                                     </form>
-                                                <?php else: ?>
-                                                    <span class="text-muted">-</span>
-                                                <?php endif; ?>
-                                            </td>
-                                        </tr>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-<?php echo $estado_class; ?>">
+                                                        <?php echo $estado_texto; ?>
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <?php if ($pago['estado'] == 'pagado'): ?>
+                                                        <form method="POST" action="cancelar_pago.php" style="display: inline;">
+                                                            <input type="hidden" name="pago_id" value="<?php echo $pago['id']; ?>">
+                                                            <input type="hidden" name="cliente_id" value="<?php echo $id; ?>">
+                                                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('¿Cancelar este pago?')" title="Cancelar pago">
+                                                                Cancelar
+                                                            </button>
+                                                        </form>
+                                                    <?php else: ?>
+                                                        <span class="text-muted">-</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                            </tr>
                                         <?php } ?>
                                     </tbody>
                                 </table>
@@ -223,12 +245,12 @@ if (isset($_POST['actualizar'])) {
                             </div>
                         <?php } ?>
                     <?php } ?>
-                    
+
                 </div>
                 </col-md>
+            </div>
         </div>
     </div>
-
 </main>
 
 
@@ -236,42 +258,45 @@ if (isset($_POST['actualizar'])) {
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>
 <script>
-// Calcular monto por cuota automÃ¡ticamente
-function calcularMontoCuotaEdit() {
-    const valorTotal = parseFloat(document.getElementById('valor_total_edit').value) || 0;
-    const sena = parseFloat(document.getElementById('sena_edit').value) || 0;
-    const cuotas = parseInt(document.getElementById('cuotas_edit').value) || 1;
-    
-    // Validar que la seña no sea mayor al valor total
-    if (sena > valorTotal) {
-        document.getElementById('sena_edit').value = valorTotal;
-        return;
-    }
-    
-    const saldoRestante = valorTotal - sena;
-    
-    if (saldoRestante > 0 && cuotas > 0) {
-        const montoPorCuota = saldoRestante / cuotas;
-        document.getElementById('monto_cuota_display_edit').textContent = 
-            '$' + montoPorCuota.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    } else if (saldoRestante === 0) {
-        document.getElementById('monto_cuota_display_edit').textContent = '$0,00';
-    } else {
-        document.getElementById('monto_cuota_display_edit').textContent = '$0,00';
-    }
-}
+    // Calcular monto por cuota automÃ¡ticamente
+    function calcularMontoCuotaEdit() {
+        const valorTotal = parseFloat(document.getElementById('valor_total_edit').value) || 0;
+        const sena = parseFloat(document.getElementById('sena_edit').value) || 0;
+        const cuotas = parseInt(document.getElementById('cuotas_edit').value) || 1;
 
-document.addEventListener('DOMContentLoaded', function() {
-    const valorInput = document.getElementById('valor_total_edit');
-    const senaInput = document.getElementById('sena_edit');
-    const cuotasInput = document.getElementById('cuotas_edit');
-    
-    if (valorInput && cuotasInput) {
-        valorInput.addEventListener('input', calcularMontoCuotaEdit);
-        cuotasInput.addEventListener('input', calcularMontoCuotaEdit);
+        // Validar que la seña no sea mayor al valor total
+        if (sena > valorTotal) {
+            document.getElementById('sena_edit').value = valorTotal;
+            return;
+        }
+
+        const saldoRestante = valorTotal - sena;
+
+        if (saldoRestante > 0 && cuotas > 0) {
+            const montoPorCuota = saldoRestante / cuotas;
+            document.getElementById('monto_cuota_display_edit').textContent =
+                '$' + montoPorCuota.toLocaleString('es-AR', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+        } else if (saldoRestante === 0) {
+            document.getElementById('monto_cuota_display_edit').textContent = '$0,00';
+        } else {
+            document.getElementById('monto_cuota_display_edit').textContent = '$0,00';
+        }
     }
-    if (senaInput) {
-        senaInput.addEventListener('input', calcularMontoCuotaEdit);
-    }
-});
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const valorInput = document.getElementById('valor_total_edit');
+        const senaInput = document.getElementById('sena_edit');
+        const cuotasInput = document.getElementById('cuotas_edit');
+
+        if (valorInput && cuotasInput) {
+            valorInput.addEventListener('input', calcularMontoCuotaEdit);
+            cuotasInput.addEventListener('input', calcularMontoCuotaEdit);
+        }
+        if (senaInput) {
+            senaInput.addEventListener('input', calcularMontoCuotaEdit);
+        }
+    });
 </script>

@@ -51,70 +51,49 @@ if (isset($_GET['id'])) {
 
 <?php include("includes/header.php"); ?>
 
-<main>
+<main class="cursor-static">
     <div class="container p-4">
-        <div class="row">
-            <div class="col-md-8 mx-auto">
-                <div class="card card-body" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(5, 5, 5, 0.1);">
-                    <div class="d-flex flex-column align-items-center mb-3">
-                        <img src="includes/logo.jpg" alt="Mujeres Virtuosas S.A" style="height:100px; width:100px; object-fit:cover; border-radius:50%;" class="mb-2">
-                        <div class="text-center fw-bold" style="font-size:3.35rem; color:#024fb7;">Mujeres Virtuosas S.A</div>
-                    </div><br><br>
-                    <h2 class="text-center mb-3">Ver cliente</h2>
+        <div class="col-12 ">
+            <div class="card w-100">
+                <div class="card-header w-100">
+                    <h5 class="mb-0">Ver Compra</h5>
+                </div>
+                <div class="card-body">
                     <!-- Mostrar datos en readonly -->
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Nombre completo</label>
-                            <input type="text" value="<?php echo htmlspecialchars($nombre_completo); ?>" class="form-control" readonly>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Teléfono</label>
-                            <input type="text" value="<?php echo htmlspecialchars($telefono); ?>" class="form-control" readonly>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Barrio</label>
-                            <input type="text" value="<?php echo htmlspecialchars($barrio); ?>" class="form-control" readonly>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Dirección</label>
-                            <input type="text" value="<?php echo htmlspecialchars($direccion); ?>" class="form-control" readonly>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Artículos</label>
-                        <textarea class="form-control" rows="4" readonly><?php echo htmlspecialchars($articulos); ?></textarea>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Valor total</label>
-                            <input type="text" value="$<?php echo number_format($valor_total, 2, ',', '.'); ?>" class="form-control" readonly>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Seña / Adelanto</label>
-                            <input type="text" value="$<?php echo number_format($sena, 2, ',', '.'); ?>" class="form-control" readonly style="color: #0066cc;">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Saldo restante</label>
-                            <input type="text" value="$<?php echo number_format($saldo_restante, 2, ',', '.'); ?>" class="form-control" readonly style="font-weight: bold; color: #dc3545;">
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Frecuencia de pago</label>
-                            <input type="text" value="<?php echo ucfirst(htmlspecialchars($frecuencia_pago)); ?>" class="form-control" readonly>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Cuotas</label>
-                            <input type="text" value="<?php echo htmlspecialchars($cuotas); ?>" class="form-control" readonly>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Monto por cuota</label>
-                            <input type="text" value="$<?php echo $monto_por_cuota; ?>" class="form-control" readonly style="font-weight: bold; color: #28a745;">
-                        </div>
-                    </div>
+                    <div class="form-group mb-2">
+                        <label class="form-label" class="form-label">Nombre completo</label>
+                        <input type="text" class="form-control mb-3" value="<?php echo htmlspecialchars($nombre_completo); ?>" class="form-control" readonly>
 
+                        <label class="form-label" class="form-label">Teléfono</label>
+                        <input type="text" class="form-control mb-3" value="<?php echo htmlspecialchars($telefono); ?>" class="form-control" readonly>
+
+                        <label class="form-label" class="form-label">Barrio</label>
+                        <input type="text" class="form-control mb-3" value="<?php echo htmlspecialchars($barrio); ?>" class="form-control" readonly>
+
+                        <label class="form-label" class="form-label">Dirección</label>
+                        <input type="text" class="form-control mb-3" value="<?php echo htmlspecialchars($direccion); ?>" class="form-control" readonly>
+
+                        <label class="form-label" class="form-label">Artículos</label>
+                        <textarea class="form-control mb-3" rows="4" readonly><?php echo htmlspecialchars($articulos); ?></textarea>
+
+                        <label class="form-label" class="form-label">Valor total</label>
+                        <input type="text" class="form-control mb-3" value="$<?php echo number_format($valor_total, 2, ',', '.'); ?>" class="form-control" readonly>
+
+                        <label class="form-label" class="form-label">Seña / Adelanto</label>
+                        <input type="text" class="form-control mb-3" value="$<?php echo number_format($sena, 2, ',', '.'); ?>" class="form-control" readonly style="color: #0066cc;">
+
+                        <label class="form-label" class="form-label">Saldo restante</label>
+                        <input type="text" class="form-control mb-3" value="$<?php echo number_format($saldo_restante, 2, ',', '.'); ?>" class="form-control" readonly style="font-weight: bold; color: #dc3545;">
+
+                        <label class="form-label" class="form-label">Frecuencia de pago</label>
+                        <input type="text" class="form-control mb-3" value="<?php echo ucfirst(htmlspecialchars($frecuencia_pago)); ?>" class="form-control" readonly>
+
+                        <label class="form-label" class="form-label">Cuotas</label>
+                        <input type="text" class="form-control mb-3" value="<?php echo htmlspecialchars($cuotas); ?>" class="form-control" readonly>
+
+                        <label class="form-label" class="form-label">Monto por cuota</label>
+                        <input type="text" class="form-control mb-3" value="$<?php echo $monto_por_cuota; ?>" class="form-control" readonly style="font-weight: bold; color: #28a745;">
+                    </div>
                     <!-- Tabla de pagos -->
                     <hr class="my-4">
                     <h4 class="mb-3">Calendario de pagos</h4>
@@ -158,15 +137,17 @@ if (isset($_GET['id'])) {
                             </div>
                         <?php endif; ?>
 
-                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                            <table class="table table-bordered table-hover">
-                                <thead class="table-light sticky-top">
+                        <hr class="my-4">
+
+                        <div class="table-responsive">
+                            <table class='table table-striped table-hover align-middle mb-0'>
+                                    <thead class="table-dark">    
                                     <tr>
                                         <th>Cuota</th>
                                         <th>Fecha programada</th>
                                         <th>Monto</th>
                                         <th>Estado</th>
-                                        <th>Fecha de pago</th>
+                                        <th>Fecha pago</th>
                                         <th>Acción</th>
                                     </tr>
                                 </thead>
@@ -175,6 +156,7 @@ if (isset($_GET['id'])) {
                                     mysqli_data_seek($resultado_pagos, 0);
                                     while ($pago = mysqli_fetch_assoc($resultado_pagos)) {
                                         $estado_class = $pago['estado'] == 'pagado' ? 'success' : 'warning';
+                                        $badge_class = $pago['estado'] == 'pagado' ? 'success' : 'warning';
                                         $estado_texto = $pago['estado'] == 'pagado' ? 'Pagado' : 'Pendiente';
                                         $fecha_pago_texto = $pago['fecha_pago'] ? date('d/m/Y', strtotime($pago['fecha_pago'])) : '-';
                                     ?>
@@ -183,7 +165,7 @@ if (isset($_GET['id'])) {
                                             <td><?php echo date('d/m/Y', strtotime($pago['fecha_programada'])); ?></td>
                                             <td>$<?php echo number_format($pago['monto'], 2, ',', '.'); ?></td>
                                             <td>
-                                                <span class="badge bg-<?php echo $estado_class; ?>">
+                                                <span class="badge bg-<?php echo $badge_class; ?>">
                                                     <?php echo $estado_texto; ?>
                                                 </span>
                                             </td>
@@ -201,8 +183,8 @@ if (isset($_GET['id'])) {
                                                     <span class="text-muted">-</span>
                                                 <?php endif; ?>
                                             </td>
-                                        </tr>
-                                    <?php } ?>
+                                            </tr>
+                                        <?php } ?>
                                 </tbody>
                             </table>
                         </div>
@@ -211,11 +193,10 @@ if (isset($_GET['id'])) {
                             No hay cuotas programadas para este cliente.
                         </div>
                     <?php } ?>
-
-                    <div class="text-end mt-3">
-                        <a href="index.php" class="btn btn-success">Volver</a>
-                    </div>
                 </div>
+            </div>
+            <div class="text-end mt-3">
+                <a href="index.php" class="btn btn-success">Volver</a>
             </div>
         </div>
     </div>

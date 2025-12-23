@@ -222,7 +222,7 @@ $total_notificaciones = $count_atrasados + $count_finalizados + $count_proximos;
                 
             <?php else: ?>
                 <div class="notification-item-widget text-center">
-                    <div style="font-size: 3rem;">✅</div>
+                    <div style="font-size: 3rem;"><i class="bi bi-check-circle-fill"></i></div>
                     <p class="text-muted mb-0">No hay notificaciones nuevas</p>
                 </div>
             <?php endif; ?>

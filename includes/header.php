@@ -32,7 +32,7 @@
 </head>
 
 <?php 
-$paginas_con_navbar = ['index.php', 'dashboard.php'];
+$paginas_con_navbar = ['index.php', 'dashboard.php', "cambiar_contrasena.php" ,"ver.php" , "empleados_vendedores.php", "editar.php"];
 if (in_array(basename($_SERVER['PHP_SELF']), $paginas_con_navbar)): 
 ?>
 
@@ -90,36 +90,39 @@ if (in_array(basename($_SERVER['PHP_SELF']), $paginas_con_navbar)):
                         </li>
 
                     <!-- Dashboard -->
-                    <li class="nav-item my-1 w-100">
+                    <li class="nav-item w-100 mb-2">
                         <a href="<?php echo $base_path; ?>dashboard.php"
-                            class="btn text-white fw-semibold fs-6 border-0 w-100 text-center"
+                            class="btn d-flex align-items-center justify-content-center gap-2 text-white fw-semibold fs-6 border-0 w-100 text-center py-2"
                             style="background: linear-gradient(135deg, #9753fdff, #8233f8ff, #7014faff);">
-                            Estadisticas
+                            <i class="bi bi-bar-chart-line"></i>
+                            Estadísticas
                         </a>
                     </li>
 
                     <!-- Vendedores -->
                     <?php if ($_SESSION['tipo_usuario'] == 'jefe'): ?>
-                        <li class="nav-item my-1 w-100">
+                        <li class="nav-item w-100 mb-2">
                             <a href="<?php echo $base_path; ?>empleados_vendedores.php"
-                                class="btn text-white fw-semibold fs-6 border-0 w-100 text-center"
+                                class="btn d-flex align-items-center justify-content-center gap-2 text-white fw-semibold fs-6 border-0 w-100 text-center py-2"
                                 style="background: linear-gradient(135deg, #9753fdff, #8233f8ff, #7014faff);">
+                                <i class="bi bi-person-badge"></i>
                                 Vendedores
                             </a>
                         </li>
                     <?php endif; ?>
 
                     <!-- Cambiar contraseña -->
-                    <li class="nav-item my-1 w-100">
+                    <li class="nav-item w-100 mb-2">
                         <a href="<?php echo $base_path; ?>cambiar_contrasena.php"
-                            class="btn text-white fw-semibold fs-6 border-0 w-100 text-center"
+                            class="btn d-flex align-items-center justify-content-center gap-2 text-white fw-semibold fs-6 border-0 w-100 text-center py-2"
                             style="background: linear-gradient(135deg, #9753fdff, #8233f8ff, #7014faff);">
+                            <i class="bi bi-key"></i>
                             Contraseña
                         </a>
                     </li>
 
                     <!-- Salir -->
-                    <li class="nav-item my-1 w-100">
+                    <li class="nav-item w-100 mb-2">
                         <a href="<?php echo $base_path; ?>logout.php"
                             class="btn text-white fw-semibold fs-6 border-0 w-100 text-center"
                             style="background: linear-gradient(135deg, #9753fdff, #8233f8ff, #7014faff);">

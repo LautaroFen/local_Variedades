@@ -26,6 +26,12 @@ include("includes/header.php");
 <?php endif; ?>
 
 <!-- Card Registrar Compra -->
+<div class="d-flex align-items-center justify-content-between mb-4 page-title-banner" style="background: linear-gradient(135deg, #2563eb 0%, #1486e2 100%); border-radius: 1rem; padding: 1.2rem 1rem; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
+    <i class="bi bi-cart display-4 text-white flex-shrink-0" style="text-shadow: 0 2px 8px #0002;"></i>
+    <h1 class="mb-0 text-white fw-bold text-uppercase flex-grow-1 text-center">Gestión de Compras</h1>
+    <i class="bi bi-cart display-4 text-white flex-shrink-0" style="text-shadow: 0 2px 8px #0002;"></i>
+</div>
+
 <div class="row g-0">
     <div class="col-12 mb-4">
         <div class="card w-100">
@@ -40,21 +46,31 @@ include("includes/header.php");
                         <input type="text" name="nombre_completo" id="nombre_completo" class="form-control mb-3"
                             placeholder="Ingrese nombre completo del cliente"
                             pattern="[A-Za-zÀ-ÖØ-öø-ÿ\s]+"
-                            required
                             title="Solo letras y espacios"
+                            maxlength="150"
                             autocomplete="off"
-                            autofocus>
+                            autofocus
+                            required>
 
                         <!-- Teléfono -->
                         <label for="telefono" class="form-label">Teléfono</label>
-                        <input type="text" name="telefono" id="telefono" class="form-control mb-3"
+                        <input type="tel" name="telefono" id="telefono" class="form-control mb-3"
                             placeholder="Ej: 1154896235"
-                            pattern="\d{10,15}"
-                            inputmode="numeric"
+                            pattern="[0-9]{10,15}"
                             maxlength="15"
-                            required
                             title="Solo números (10 a 15 dígitos)"
-                            autocomplete="off">
+                            autocomplete="off"
+                            required>
+
+                        <!-- Email -->
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" name="email" id="email" class="form-control mb-3"
+                            placeholder="Ej: ejemplo@correo.com (Opcional)"
+                            pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
+                            maxlength="100"
+                            title="Ingrese un email válido"
+                            autocomplete="off"
+                            required>
 
                         <!-- Barrio -->
                         <label for="barrio" class="form-label">Barrio</label>
@@ -179,7 +195,10 @@ include("includes/header.php");
                 <form action="index.php" method="GET" autocomplete="off" id="formBusqueda">
                     <div class="row">
                         <div class="col-12 col-md-8 mb-2">
-                            <input type="text" name="buscar" class="form-control" placeholder="Buscar por nombre o teléfono"
+                            <input type="text"
+                                name="buscar"
+                                class="form-control"
+                                placeholder="Buscar por nombre, teléfono o email"
                                 value="<?php echo isset($_GET['buscar']) ? htmlspecialchars($_GET['buscar']) : ''; ?>" autocomplete="off">
                         </div>
                         <div class="col-12 col-md-4 mb-2">
@@ -195,12 +214,12 @@ include("includes/header.php");
                             </div>
                         </div>
                     </div>
-                    <div class="text-center d-flex justify-content-end" >
+                    <div class="text-center d-flex justify-content-end">
                         <button class="btn btn-success mt-2 w-100" type="button" data-bs-toggle="collapse" data-bs-target="#filtrosAvanzados" aria-expanded="false">
                             Filtros de Busqueda
                         </button>
                     </div>
-                    
+
 
                     <!-- Filtros avanzados (colapsables) -->
                     <div class="collapse mt-3" id="filtrosAvanzados">
@@ -230,7 +249,7 @@ include("includes/header.php");
                                     <label class="form-label">Estado de pagos</label>
                                     <select name="estado" class="form-select">
                                         <option value="">Todos</option>
-                                        <option value="finalizado" <?php echo (isset($_GET['estado']) && $_GET['estado'] == 'finalizado') ? 'selected' : ''; ?>>✅ Finalizados</option>
+                                        <option value="finalizado" <?php echo (isset($_GET['estado']) && $_GET['estado'] == 'finalizado') ? 'selected' : ''; ?>>Finalizados</option>
                                         <option value="pendiente" <?php echo (isset($_GET['estado']) && $_GET['estado'] == 'pendiente') ? 'selected' : ''; ?>>⏳ Con pagos pendientes</option>
                                         <option value="atrasado" <?php echo (isset($_GET['estado']) && $_GET['estado'] == 'atrasado') ? 'selected' : ''; ?>>⚠️ Con pagos atrasados</option>
                                     </select>
@@ -267,9 +286,7 @@ include("includes/header.php");
 
             <div class="card-body">
 
-                <script>
-                    const confirmar = () => confirm("¿Quiere borrar el registro?");
-                </script>
+
 
                 <?php
                 /* ==========================
@@ -285,20 +302,25 @@ include("includes/header.php");
                 $where = [];
                 $params = [];
 
+
                 function addFilter($key, $sql, &$where, &$params)
                 {
                     if (!empty($_GET[$key])) {
-                        $val = $_GET[$key];
-                        $where[] = str_replace("?", "'" . addslashes($val) . "'", $sql);
-                        $params[] = "$key=" . urlencode($val);
+                        $val = addslashes($_GET[$key]);
+                        // Para LIKE, poner los comodines dentro del valor
+                        if (strpos($sql, 'LIKE') !== false) {
+                            $val = "%$val%";
+                        }
+                        $where[] = str_replace("?", "'" . $val . "'", $sql);
+                        $params[] = "$key=" . urlencode($_GET[$key]);
                     }
                 }
 
-                addFilter("buscar", "(c.nombre_completo LIKE '%?%' OR c.telefono LIKE '%?%')", $where, $params);
-                addFilter("barrio", "c.barrio LIKE '%?%'", $where, $params);
-                addFilter("frecuencia", "c.frecuencia_pago = '?'", $where, $params);
-                addFilter("fecha_desde", "c.fecha_registro >= '?'", $where, $params);
-                addFilter("fecha_hasta", "c.fecha_registro <= '?'", $where, $params);
+                addFilter("buscar", "(c.nombre_completo LIKE ? OR c.telefono LIKE ? OR c.email LIKE ?)", $where, $params);
+                addFilter("barrio", "c.barrio LIKE ?", $where, $params);
+                addFilter("frecuencia", "c.frecuencia_pago = ?", $where, $params);
+                addFilter("fecha_desde", "c.fecha_registro >= ?", $where, $params);
+                addFilter("fecha_hasta", "c.fecha_registro <= ?", $where, $params);
 
                 $where_sql = count($where) ? "WHERE " . implode(" AND ", $where) : "";
 
@@ -336,8 +358,8 @@ include("includes/header.php");
                     ) pc ON pc.cliente_id = c.id
                     $where_sql
                     ORDER BY c.id DESC
-                    LIMIT $por_pagina OFFSET $offset
                 ");
+                //LIMIT $por_pagina OFFSET $offset  // Comando comentado para referencia, no usar paginación
 
                 $pendientes = [];
                 $atrasados = [];
@@ -363,43 +385,39 @@ include("includes/header.php");
                     $cuota = number_format($r["valor_total"] / $r["cuotas"], 2, ",", ".");
                     $valor_total = number_format($r["valor_total"], 2, ",", ".");
                     $es_jefe = $_SESSION["tipo_usuario"] == "jefe";
+                    $vendedor_nombre = (isset($r['vendedor_nombre']) && $r['vendedor_nombre'] !== null && $r['vendedor_nombre'] !== '')
+                        ? htmlspecialchars($r['vendedor_nombre'])
+                        : 'Sin asignar';
 
                     return "
                     <tr>
                         <td class='text-nowrap'>{$r['nombre_completo']}</td>
                         <td class='text-nowrap'>{$r['telefono']}</td>
-                
+                        <td class='text-nowrap'>{$r['email']}</td>
+                        <td class='text-nowrap'>{$vendedor_nombre}</td>
                         <td class='text-nowrap'>$ $valor_total</td>
                         <td class='text-nowrap'>
                             <span class='badge text-bg-info'>" . ucfirst($r["frecuencia_pago"]) . "</span>
                         </td>
-                
                         <td class='text-nowrap'>{$r['cuotas']}</td>
                         <td class='text-nowrap fw-semibold'>$ $cuota</td>
-                
                         <td class='text-nowrap'>
                             <span class='badge text-bg-info'>$estado_html</span>
                         </td>
-                
                         <td class='text-nowrap'>
                             <div class='btn-group btn-group-sm'>
-                
                                 <a href='ver.php?id={$r['id']}' class='btn btn-outline-primary'>
                                     Ver
                                 </a>
-                
                                 " . ($es_jefe ? "<a href='editar.php?id={$r['id']}' class='btn btn-outline-warning'>
                                     Editar
                                 </a>" : "") . "
-                
                                 <a href='estado_cuenta_pdf.php?id={$r['id']}' target='_blank' class='btn btn-outline-success'>
                                     PDF
                                 </a>
-                
-                                " . ($es_jefe ? "<a href='eliminar.php?id={$r['id']}' class='btn btn-outline-danger' onclick='return confirmar()'>
+                                " . ($es_jefe ? "<a href='eliminar.php?id={$r['id']}' class='btn btn-outline-danger' data-confirm='¿Quiere borrar el registro?'>
                                     Eliminar
                                 </a>" : "") . "
-
                             </div>
                         </td>
                     </tr>";
@@ -410,12 +428,14 @@ include("includes/header.php");
                     <div class='$class'>
                         <h4 class='fw-bold mb-3 text-center'>$titulo</h4>
                 
-                        <div class='table-responsive d-flex justify-content-center'>
+                        <div class='table-responsive'>
                             <table class='table table-striped table-hover align-middle mb-0'>
                                 <thead class='$badge'>
                                     <tr>
                                         <th>Nombre</th>
                                         <th>Teléfono</th>
+                                        <th>Email</th>
+                                        <th>Vendedor</th>
                                         <th>Valor Total</th>
                                         <th>Frecuencia</th>
                                         <th>Cuotas</th>
@@ -427,7 +447,7 @@ include("includes/header.php");
                                 <tbody>";
 
                     if (!$items) {
-                        echo "<tr><td colspan='8' class='text-center text-muted py-4'>Sin resultados</td></tr>";
+                        echo "<tr><td colspan='10' class='text-center text-muted py-4'>Sin resultados</td></tr>";
                     } else {
                         foreach ($items as $r) {
 
@@ -453,41 +473,43 @@ include("includes/header.php");
                 }
                 ?>
                 <!-- NAV -->
-                <ul class="nav nav-tabs mb-3">
-                    <li class="nav-item">
-                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab1">
-                            Pendientes
-                        </button>
-                    </li>
-                    <li class="nav-item">
-                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab2">
-                            Atrasados
-                        </button>
-                    </li>
-                    <li class="nav-item">
-                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab3">
-                            Finalizados
-                        </button>
-                    </li>
-                </ul>
+                <div id="grilla-compras">
+                    <ul class="nav nav-tabs mb-3">
+                        <li class="nav-item">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab1">
+                                Pendientes
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab2">
+                                Atrasados
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab3">
+                                Finalizados
+                            </button>
+                        </li>
+                    </ul>
 
-                <div class="tab-content">
+                    <div class="tab-content">
 
-                    <!-- PENDIENTES -->
-                    <div class="tab-pane fade show active" id="tab1">
-                        <?php renderTabla($pendientes, "Clientes con pagos pendientes", "", "table-warning"); ?>
+                        <!-- PENDIENTES -->
+                        <div class="tab-pane fade show active" id="tab1">
+                            <?php renderTabla($pendientes, "Clientes con pagos pendientes", "", "table-warning"); ?>
+                        </div>
+
+                        <!-- ATRASADOS -->
+                        <div class="tab-pane fade" id="tab2">
+                            <?php renderTabla($atrasados, "Clientes con pagos atrasados", "", "table-danger"); ?>
+                        </div>
+
+                        <!-- FINALIZADOS -->
+                        <div class="tab-pane fade" id="tab3">
+                            <?php renderTabla($finalizados, "Clientes finalizados", "", "table-success"); ?>
+                        </div>
                     </div>
-
-                    <!-- ATRASADOS -->
-                    <div class="tab-pane fade" id="tab2">
-                        <?php renderTabla($atrasados, "Clientes con pagos atrasados", "", "table-danger"); ?>
-                    </div>
-
-                    <!-- FINALIZADOS -->
-                    <div class="tab-pane fade" id="tab3">
-                        <?php renderTabla($finalizados, "Clientes finalizados", "", "table-success"); ?>
-                    </div>
-                </div>
+                </div> <!-- cierre grilla-compras -->
             </div>
         </div>
     </div>
