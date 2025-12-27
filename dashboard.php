@@ -425,7 +425,7 @@ include("includes/header.php");
         <div class="row mt-5">
             <div class="col-12 text-center">
                 <a href="index.php" class="btn btn-primary btn-lg me-2">Volver al Inicio</a>
-                <a href="exportar_excel.php" class="btn btn-success btn-lg">Exportar a Excel</a>
+                <a href="PHPMailer/exportar_excel.php" class="btn btn-success btn-lg">Exportar a Excel</a>
             </div>
         </div>
     </div>

@@ -1,0 +1,7 @@
+{
+    "name": "local-mv/app",
+    "description": "Local_MV",
+    "require": {
+        "dompdf/dompdf": "^3.1"
+    }
+}

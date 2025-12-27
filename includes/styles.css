@@ -226,6 +226,15 @@ h1{
     overflow-y: auto;
 }
 
+/* THEAD fijo: que solo scrollee el tbody */
+.table-responsive thead th {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--gradient-primary);
+    color: var(--white);
+}
+
 .table-responsive::-webkit-scrollbar {
     height: 8px;
     width: 8px;

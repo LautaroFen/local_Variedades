@@ -47,9 +47,108 @@ $progreso = $total_cuotas > 0 ? ($cuotas_pagadas / $total_cuotas) * 100 : 0;
 $sena = isset($cliente['sena']) ? $cliente['sena'] : 0;
 $saldo_restante = $cliente['valor_total'] - $sena;
 $monto_por_cuota = $cliente['cuotas'] > 0 ? $saldo_restante / $cliente['cuotas'] : 0;
+
+// =====================================================
+// Descargar PDF real (sin imprimir)
+// Requiere: composer require dompdf/dompdf
+// URL: estado_cuenta_pdf.php?id=123&download=1
+// =====================================================
+if (isset($_GET['download']) && (string)$_GET['download'] === '1') {
+    $autoload = __DIR__ . '/vendor/autoload.php';
+    if (!file_exists($autoload)) {
+        header('Content-Type: text/plain; charset=UTF-8');
+        echo "ERROR: Falta vendor/autoload.php. En este servidor ejecutá: composer install\n";
+        exit;
+    }
+
+    require_once $autoload;
+
+    $cliente_nombre = isset($cliente['nombre_completo']) ? (string)$cliente['nombre_completo'] : 'cliente';
+    $cliente_nombre_file = preg_replace('/[^A-Za-z0-9_-]+/', '_', strtolower($cliente_nombre));
+    $filename = 'estado_cuenta_' . $cliente_nombre_file . '_' . date('Ymd_His') . '.pdf';
+
+    $html = '<!doctype html><html lang="es"><head><meta charset="UTF-8">'
+        . '<style>'
+        . 'body{font-family:DejaVu Sans, Arial, sans-serif;font-size:12px;color:#111;}'
+        . 'h2{margin:0 0 4px 0;} .muted{color:#666;}'
+        . '.box{border:1px solid #ddd;border-radius:6px;padding:10px;margin:10px 0;}'
+        . 'table{width:100%;border-collapse:collapse;margin-top:8px;}'
+        . 'th,td{border:1px solid #ddd;padding:6px;}'
+        . 'th{background:#f3f4f6;text-align:left;}'
+        . '.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;color:#fff;}'
+        . '.b-success{background:#16a34a;} .b-warning{background:#f59e0b;}'
+        . '</style></head><body>';
+
+    $html .= '<div class="box">'
+        . '<h2>Mujeres Virtuosas</h2>'
+        . '<div class="muted">Estado de Cuenta</div>'
+        . '<div class="muted">Generado el ' . date('d/m/Y H:i') . '</div>'
+        . '</div>';
+
+    $html .= '<div class="box">'
+        . '<strong>Nombre:</strong> ' . htmlspecialchars($cliente['nombre_completo']) . '<br>'
+        . '<strong>Teléfono:</strong> ' . htmlspecialchars($cliente['telefono']) . '<br>'
+        . '<strong>Dirección:</strong> ' . htmlspecialchars($cliente['direccion']) . '<br>'
+        . '</div>';
+
+    $html .= '<div class="box">'
+        . '<strong>Artículos:</strong><br>'
+        . nl2br(htmlspecialchars($cliente['articulos']))
+        . '</div>';
+
+    $html .= '<div class="box">'
+        . '<strong>Detalle económico</strong><br>'
+        . 'Valor total: $' . number_format((float)$cliente['valor_total'], 2, ',', '.') . '<br>'
+        . 'Seña / Adelanto: $' . number_format((float)$sena, 2, ',', '.') . '<br>'
+        . 'Saldo restante: $' . number_format((float)$saldo_restante, 2, ',', '.') . '<br>'
+        . 'Cuotas: ' . (int)$cliente['cuotas'] . '<br>'
+        . 'Monto por cuota: $' . number_format((float)$monto_por_cuota, 2, ',', '.') . '<br>'
+        . '</div>';
+
+    $html .= '<div class="box">'
+        . '<strong>Calendario de pagos</strong><br>'
+        . '<span class="muted">Progreso: ' . (int)$cuotas_pagadas . ' de ' . (int)$total_cuotas . ' (' . number_format((float)$progreso, 1) . '%)</span>';
+
+    $html .= '<table><thead><tr>'
+        . '<th>Cuota</th><th>Fecha programada</th><th>Monto</th><th>Estado</th><th>Fecha pago</th>'
+        . '</tr></thead><tbody>';
+
+    if ($resultado_pagos && mysqli_num_rows($resultado_pagos) > 0) {
+        mysqli_data_seek($resultado_pagos, 0);
+        while ($pago = mysqli_fetch_assoc($resultado_pagos)) {
+            $estado = $pago['estado'] == 'pagado' ? 'Pagado' : 'Pendiente';
+            $badgeClass = $pago['estado'] == 'pagado' ? 'b-success' : 'b-warning';
+            $fechaPagoTexto = $pago['fecha_pago'] ? date('d/m/Y', strtotime($pago['fecha_pago'])) : '-';
+            $html .= '<tr>'
+                . '<td><strong>' . (int)$pago['numero_cuota'] . '</strong></td>'
+                . '<td>' . date('d/m/Y', strtotime($pago['fecha_programada'])) . '</td>'
+                . '<td>$' . number_format((float)$pago['monto'], 2, ',', '.') . '</td>'
+                . '<td><span class="badge ' . $badgeClass . '">' . $estado . '</span></td>'
+                . '<td>' . $fechaPagoTexto . '</td>'
+                . '</tr>';
+        }
+    } else {
+        $html .= '<tr><td colspan="5" style="text-align:center" class="muted">No hay cuotas programadas para este cliente.</td></tr>';
+    }
+
+    $html .= '</tbody></table></div>';
+    $html .= '</body></html>';
+
+    $options = new \Dompdf\Options();
+    $options->set('defaultFont', 'DejaVu Sans');
+    $options->set('isRemoteEnabled', false);
+
+    $dompdf = new \Dompdf\Dompdf($options);
+    $dompdf->loadHtml($html, 'UTF-8');
+    $dompdf->setPaper('A4', 'portrait');
+    $dompdf->render();
+    $dompdf->stream($filename, ['Attachment' => true]);
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -57,164 +156,112 @@ $monto_por_cuota = $cliente['cuotas'] > 0 ? $saldo_restante / $cliente['cuotas']
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         @media print {
-            .no-print { display: none; }
-            body { margin: 0; background: white !important; }
-            .card { box-shadow: none !important; border: 1px solid #ddd !important; }
+            .no-print {
+                display: none;
+            }
+
+            body {
+                margin: 0;
+                background: white !important;
+            }
+
+            .card {
+                box-shadow: none !important;
+                border: 1px solid #ddd !important;
+            }
         }
-        body { 
-            padding: 20px; 
+
+        body {
+            padding: 20px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
         }
     </style>
 </head>
+
 <body>
-    <main>
-        <div class="container p-4">
-            <div class="row">
-                <div class="col-md-10 mx-auto">
-                    <div class="card card-body" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(5, 5, 5, 0.1);">
-                        <!-- Logo y título -->
-                        <div class="d-flex flex-column align-items-center mb-3">
-                            <img src="includes/logo.jpg" alt="Mujeres Virtuosas" style="height:100px; width:100px; object-fit:cover; border-radius:50%;" class="mb-2">
-                            <div class="text-center fw-bold" style="font-size:2.5rem; color:#024fb7;">Mujeres Virtuosas</div>
-                        </div>
-                        
-                        <h2 class="text-center mb-4">📄 Estado de Cuenta</h2>
+    <main class="container my-4">
+        <div class="row justify-content-center">
+            <div class="col-12 col-md-10 col-lg-8">
+                <div class="card border shadow-sm p-4">
 
-                        <!-- Información del Cliente -->
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Nombre completo</label>
-                                <input type="text" value="<?php echo htmlspecialchars($cliente['nombre_completo']); ?>" class="form-control" readonly>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Teléfono</label>
-                                <input type="text" value="<?php echo htmlspecialchars($cliente['telefono']); ?>" class="form-control" readonly>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Barrio</label>
-                                <input type="text" value="<?php echo htmlspecialchars($cliente['barrio']); ?>" class="form-control" readonly>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Dirección</label>
-                                <input type="text" value="<?php echo htmlspecialchars($cliente['direccion']); ?>" class="form-control" readonly>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Artículos</label>
-                            <textarea class="form-control" rows="4" readonly><?php echo htmlspecialchars($cliente['articulos']); ?></textarea>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Valor total</label>
-                                <input type="text" value="$<?php echo number_format($cliente['valor_total'], 2, ',', '.'); ?>" class="form-control" readonly>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Seña / Adelanto</label>
-                                <input type="text" value="$<?php echo number_format($sena, 2, ',', '.'); ?>" class="form-control" readonly style="color: #0066cc;">
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Saldo restante</label>
-                                <input type="text" value="$<?php echo number_format($saldo_restante, 2, ',', '.'); ?>" class="form-control" readonly style="font-weight: bold; color: #dc3545;">
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Frecuencia de pago</label>
-                                <input type="text" value="<?php echo ucfirst(htmlspecialchars($cliente['frecuencia_pago'])); ?>" class="form-control" readonly>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Cuotas</label>
-                                <input type="text" value="<?php echo htmlspecialchars($cliente['cuotas']); ?>" class="form-control" readonly>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Monto por cuota</label>
-                                <input type="text" value="$<?php echo number_format($monto_por_cuota, 2, ',', '.'); ?>" class="form-control" readonly style="font-weight: bold; color: #28a745;">
-                            </div>
-                        </div>
-
-                        <!-- Calendario de pagos -->
-                        <hr class="my-4">
-                        <h4 class="mb-3">Calendario de pagos</h4>
-
-                        <div class="alert alert-info mb-3">
-                            <strong>Progreso:</strong> <?php echo $cuotas_pagadas; ?> de <?php echo $total_cuotas; ?> cuotas pagadas (<?php echo number_format($progreso, 1); ?>%)
-                        </div>
-
-                        <?php if ($proximo_pago): ?>
-                            <div class="alert alert-warning mb-3">
-                                <strong>Próximo pago:</strong> <?php echo date('d/m/Y', strtotime($proximo_pago['fecha_programada'])); ?> -
-                                $<?php echo number_format($proximo_pago['monto'], 2, ',', '.'); ?>
-                            </div>
-                        <?php endif; ?>
-
-                        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-                            <table class="table table-bordered table-hover">
-                                <thead class="table-light sticky-top">
-                                    <tr>
-                                        <th>Cuota</th>
-                                        <th>Fecha programada</th>
-                                        <th>Monto</th>
-                                        <th>Estado</th>
-                                        <th>Fecha de pago</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php
-                                    if ($resultado_pagos && mysqli_num_rows($resultado_pagos) > 0) {
-                                        mysqli_data_seek($resultado_pagos, 0);
-                                        while ($pago = mysqli_fetch_assoc($resultado_pagos)) {
-                                            $estado_class = $pago['estado'] == 'pagado' ? 'success' : 'warning';
-                                            $estado_texto = $pago['estado'] == 'pagado' ? 'Pagado' : 'Pendiente';
-                                            $fecha_pago_texto = $pago['fecha_pago'] ? date('d/m/Y', strtotime($pago['fecha_pago'])) : '-';
-                                    ?>
-                                        <tr class="table-<?php echo $estado_class; ?>">
-                                            <td><strong><?php echo $pago['numero_cuota']; ?></strong></td>
-                                            <td><?php echo date('d/m/Y', strtotime($pago['fecha_programada'])); ?></td>
-                                            <td>$<?php echo number_format($pago['monto'], 2, ',', '.'); ?></td>
-                                            <td>
-                                                <span class="badge bg-<?php echo $estado_class; ?>">
-                                                    <?php echo $estado_texto; ?>
-                                                </span>
-                                            </td>
-                                            <td><?php echo $fecha_pago_texto; ?></td>
-                                        </tr>
-                                    <?php 
-                                        }
-                                    } else {
-                                    ?>
-                                        <tr>
-                                            <td colspan="5" class="text-center">No hay cuotas programadas para este cliente.</td>
-                                        </tr>
-                                    <?php } ?>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- Footer con fecha de generació³n -->
-                        <div class="text-center mt-4 pt-3 border-top">
-                            <small class="text-muted">
-                                Documento generado el <?php echo date('d/m/Y H:i'); ?> - 
-                                Mujeres Virtuosas
-                            </small>
-                        </div>
-
-                        <!-- Botones -->
-                        <div class="text-center mt-4 no-print">
-                            <button onclick="window.print()" class="btn btn-primary btn-lg">🖨 Imprimir / Descargar PDF</button>
-                            <button onclick="window.close()" class="btn btn-secondary btn-lg">↩️ Volver</button>
-                        </div>
+                    <!-- Encabezado -->
+                    <div class="text-center mb-4">
+                        <h2 class="fw-bold mb-0">Mujeres Virtuosas</h2>
+                        <div class="text-muted">Estado de Cuenta</div>
                     </div>
+
+                    <!-- Datos del cliente -->
+                    <div class="mb-3">
+                        <h6 class="border-bottom pb-1 fw-bold">Datos del cliente</h6>
+                        <p class="mb-1"><strong>Nombre:</strong> <?= htmlspecialchars($cliente['nombre_completo']) ?></p>
+                        <p class="mb-1"><strong>Teléfono:</strong> <?= htmlspecialchars($cliente['telefono']) ?></p>
+                        <p class="mb-1"><strong>Dirección:</strong> <?= htmlspecialchars($cliente['direccion']) ?></p>
+                    </div>
+
+                    <!-- Artículos -->
+                    <div class="mb-3">
+                        <h6 class="border-bottom pb-1 fw-bold">Artículos</h6>
+                        <p class="mb-0"><?= nl2br(htmlspecialchars($cliente['articulos'])) ?></p>
+                    </div>
+
+                    <!-- Detalle económico (TEXTO PLANO) -->
+                    <div class="mb-3">
+                        <h6 class="border-bottom pb-1 fw-bold">Detalle económico</h6>
+                        <pre class="mb-0">
+Valor total     : $<?= number_format($cliente['valor_total'], 2, ',', '.') ?>
+Seña / Adelanto : $<?= number_format($sena, 2, ',', '.') ?>
+Saldo restante  : $<?= number_format($saldo_restante, 2, ',', '.') ?>
+
+Cuotas          : <?= $cliente['cuotas'] ?>
+Monto por cuota : $<?= number_format($monto_por_cuota, 2, ',', '.') ?>
+                    </pre>
+                    </div>
+
+                    <!-- Calendario de pagos -->
+                    <div class="mb-3">
+                        <h6 class="border-bottom pb-1 fw-bold">Calendario de pagos</h6>
+                        <pre class="mb-0">
+Cuota | Fecha Prog |     Monto     | Estado    | Fecha Pago
+-----------------------------------------------------------
+<?php
+mysqli_data_seek($resultado_pagos, 0);
+while ($pago = mysqli_fetch_assoc($resultado_pagos)) {
+    printf(
+        "%5s | %10s | $%11s | %-9s | %10s\n",
+        $pago['numero_cuota'],
+        date('d/m/Y', strtotime($pago['fecha_programada'])),
+        number_format($pago['monto'], 2, ',', '.'),
+        strtoupper($pago['estado']),
+        $pago['fecha_pago'] ? date('d/m/Y', strtotime($pago['fecha_pago'])) : '-'
+    );
+}
+?>
+                    </pre>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="text-center pt-3 border-top">
+                        <small class="text-muted">
+                            Documento generado el <?= date('d/m/Y H:i') ?>
+                        </small>
+                    </div>
+
+                    <!-- Acciones -->
+                    <div class="text-center mt-3 no-print">
+                        <button onclick="window.print(); setTimeout(() => window.close(), 500)" class="btn btn-primary">Imprimir</button>
+                        <a href="estado_cuenta_pdf.php?id=<?= (int)$id ?>&download=1" class="btn btn-success">Descargar PDF</a>
+                        <button onclick="window.close()" class="btn btn-secondary">Volver</button>
+                    </div>
+
                 </div>
             </div>
         </div>
     </main>
 
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="javascript/estado_cuenta_pdf.js?v=<?php echo time(); ?>"></script>
 </body>
-</html>
 
+</html>

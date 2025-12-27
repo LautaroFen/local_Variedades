@@ -53,6 +53,11 @@ if (isset($_GET['id'])) {
 
 <main class="cursor-static">
     <div class="container p-4">
+        <div class="d-flex align-items-center justify-content-between mb-4 page-title-banner" style="background: linear-gradient(135deg, #2563eb 0%, #1486e2 100%); border-radius: 1rem; padding: 1.2rem 1rem; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
+            <i class="bi bi-cart display-4 text-white flex-shrink-0" style="text-shadow: 0 2px 8px #0002;"></i>
+            <h1 class="mb-0 text-white fw-bold text-uppercase flex-grow-1 text-center">Registro de Compra</h1>
+            <i class="bi bi-cart display-4 text-white flex-shrink-0" style="text-shadow: 0 2px 8px #0002;"></i>
+        </div>
         <div class="col-12 ">
             <div class="card w-100">
                 <div class="card-header w-100">
@@ -141,7 +146,7 @@ if (isset($_GET['id'])) {
 
                         <div class="table-responsive">
                             <table class='table table-striped table-hover align-middle mb-0'>
-                                    <thead class="table-dark">    
+                                <thead>    
                                     <tr>
                                         <th>Cuota</th>
                                         <th>Fecha programada</th>

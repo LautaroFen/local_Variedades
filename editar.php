@@ -191,7 +191,7 @@ if (isset($_POST['actualizar'])) {
                     ?>
                             <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
                                 <table class="table table-bordered table-sm">
-                                    <thead class="table-dark">
+                                    <thead>
                                         <tr>
                                             <th>Cuota</th>
                                             <th>Fecha programada</th>

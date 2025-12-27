@@ -1,227 +1,241 @@
 <?php
-include("conexion.php");
-include("includes/header.php");
+// recuperar_contrasena.php
+if (session_status() === PHP_SESSION_NONE) session_start();
 
-// Intentar cargar el sistema de correo (si está instalado)
-$email_disponible = false;
-if (file_exists('email_helper.php')) {
-    require_once 'email_helper.php';
-    $email_disponible = true;
-}
+include("conexion.php");
+require_once __DIR__ . '/PHPMailer/email_config.php';
+require_once __DIR__ . '/PHPMailer/notificacion_contrasena.php';
 
 $message = '';
-$paso = 1; // Paso actual: 1=solicitar, 2=verificar, 3=cambiar
-$emailDetails = [];
+$paso = 1;
 
-// Si se accede con GET y hay parámetro reset, limpiar sesión
+// Flash message (para evitar reenvío por refresh/doble submit)
+if (isset($_SESSION['flash_message'])) {
+    $message = (string)$_SESSION['flash_message'];
+    unset($_SESSION['flash_message']);
+}
+
+// Destinatario fijo para recuperación (por ahora): EMAIL_TO
+$allowed_recovery_recipients = [];
+if (defined('EMAIL_TO')) {
+    $fallback = trim(EMAIL_TO);
+    if ($fallback !== '' && filter_var($fallback, FILTER_VALIDATE_EMAIL)) {
+        $allowed_recovery_recipients[] = strtolower($fallback);
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['reset'])) {
-    unset($_SESSION['paso_recuperacion']);
-    unset($_SESSION['email_details']);
-    unset($_SESSION['token_id']);
+    unset($_SESSION['paso_recuperacion'], $_SESSION['token_id']);
+    unset($_SESSION['last_recovery_send_at']);
     $paso = 1;
 }
 
-// Recuperar el paso de la sesión si existe
 if (isset($_SESSION['paso_recuperacion'])) {
     $paso = intval($_SESSION['paso_recuperacion']);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // 1. Solicitar código
-    $solicitud_usuario = isset($_POST['solicitar']) ? true : false;
+    $solicitud_usuario  = isset($_POST['solicitar']);
+    $verificar_codigo   = isset($_POST['verificar_codigo']);
+    $cambiar_usuario    = isset($_POST['cambiar_usuario']);
 
-    // 2. Verificar código
-    $verificar_codigo = isset($_POST['verificar_codigo']) ? true : false;
-
-    // 3. Cambiar usuario
-    $cambiar_usuario = isset($_POST['cambiar_usuario']) ? true : false;
-
+    /* ------------------------------------
+       PASO 1: generar token y enviar mail
+       ------------------------------------ */
     if ($solicitud_usuario) {
-        // Generar código de 6 dígitos
-        $codigo = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
-        $expiracion = date('Y-m-d H:i:s', strtotime('+1 hour'));
-
-        // Guardar código en la base de datos (reutilizando tabla password_reset_tokens)
-        // usuario_id = 0 para indicar que es para cualquier usuario
-        $stmtToken = mysqli_prepare($conn, 'INSERT INTO password_reset_tokens (usuario_id, token, expiracion) VALUES (0, ?, ?)');
-        if ($stmtToken) {
-            mysqli_stmt_bind_param($stmtToken, 'ss', $codigo, $expiracion);
-            if (mysqli_stmt_execute($stmtToken)) {
-                $expiracion_formateada = date('d/m/Y H:i', strtotime($expiracion));
-
-                // Preparar datos del email
-                $emailDetails = [
-                    'para' => 'fen.lautaro@yahoo.com',
-                    'asunto' => 'Código de recuperación de usuario - Mujeres Virtuosas',
-                    'codigo' => $codigo,
-                    'expiracion' => $expiracion_formateada
-                ];
-
-                // Intentar enviar correo real si está disponible
-                $correo_enviado = false;
-                if ($email_disponible && defined('SMTP_PASSWORD') && SMTP_PASSWORD !== '') {
-                    try {
-                        $html_correo = generarHTMLCodigoRecuperacion($codigo, $expiracion_formateada);
-                        $correo_enviado = enviarCorreo(
-                            $emailDetails['para'],
-                            $emailDetails['asunto'],
-                            $html_correo
-                        );
-                    } catch (Exception $e) {
-                        error_log("Error al enviar correo: " . $e->getMessage());
-                    }
-                }
-
-                // Actualizar paso y guardar detalles en sesión
-                $paso = 2;
+        if (empty($allowed_recovery_recipients)) {
+            $message = '<div class="alert alert-danger">No se puede enviar el código porque no está configurado el correo del administrador (EMAIL_TO).<br><small>Configurá el correo y la contraseña en <strong>PHPMailer/email_config.php</strong> (sección <strong>EDITAR AQUÍ</strong>) o usando variables de entorno <strong>MV_EMAIL_TO</strong>/<strong>MV_SMTP_USERNAME</strong>.</small></div>';
+        } else {
+            // Rate limit simple para evitar envíos duplicados por doble click/refresh
+            $now = time();
+            $lastSendAt = isset($_SESSION['last_recovery_send_at']) ? (int)$_SESSION['last_recovery_send_at'] : 0;
+            if ($lastSendAt > 0 && ($now - $lastSendAt) < 30) {
                 $_SESSION['paso_recuperacion'] = 2;
-                $_SESSION['email_details'] = $emailDetails;
+                $paso = 2;
+                $message = '<div class="alert alert-info">Ya se envió un código recientemente. Puede tardar unos minutos. Revisa la bandeja de entrada y spam.</div>';
+            } else {
+            $email_destino = $allowed_recovery_recipients[0];
+            try {
+                $codigo = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            } catch (Exception $e) {
+                $codigo = str_pad(mt_rand(0, 999999), 6, '0', STR_PAD_LEFT);
+            }
+            $expiracion = date('Y-m-d H:i:s', strtotime('+1 hour'));
 
-                if ($correo_enviado) {
-                    $message = '<div class="alert alert-success">¡Código enviado exitosamente a tu correo electrónico! Revisa tu bandeja de entrada y spam.<br><small>El código expira en 1 hora.</small></div>';
-                } else {
-                    if ($email_disponible && (!defined('SMTP_PASSWORD') || SMTP_PASSWORD === '')) {
-                        $message = '<div class="alert alert-warning">El sistema de correo no está configurado. Por favor, configura la contraseña en <code>email_config.php</code>. Mientras tanto, aquí está tu código:</div>';
+            $stmtToken = mysqli_prepare($conn, 'INSERT INTO password_reset_tokens (usuario_id, token, expiracion) VALUES (0, ?, ?)');
+            if ($stmtToken) {
+                mysqli_stmt_bind_param($stmtToken, 'ss', $codigo, $expiracion);
+                $okInsert = mysqli_stmt_execute($stmtToken);
+                mysqli_stmt_close($stmtToken);
+            } else {
+                $okInsert = false;
+            }
+
+            if (!$okInsert) {
+                $message = '<div class="alert alert-danger">Error interno al generar el código. Intentá nuevamente.</div>';
+            } else {
+                $expiracion_formateada = date('d/m/Y H:i', strtotime($expiracion));
+                
+                try {
+                    $correo_enviado = mv_enviar_notificacion_contrasena($email_destino, $codigo, $expiracion_formateada);
+                    
+                    if ($correo_enviado) {
+                        $_SESSION['last_recovery_send_at'] = time();
+                        $_SESSION['paso_recuperacion'] = 2;
+                        $_SESSION['flash_message'] = '<div class="alert alert-success">Solicitud enviada. El código fue enviado a <strong>' . htmlspecialchars($email_destino) . '</strong>.<br><small>El código expira en 1 hora. Puede tardar unos minutos (revisa spam).</small></div>';
+                        header('Location: recuperar_contrasena.php');
+                        exit;
                     } else {
-                        $message = '<div class="alert alert-info">Simulación de correo (PHPMailer no instalado). En producción, este código se enviaría al correo electrónico.</div>';
+                        $detalle_envio = isset($GLOBALS['MAILER_LAST_ERROR']) ? trim((string)$GLOBALS['MAILER_LAST_ERROR']) : '';
+                        $detalle_html = $detalle_envio !== '' ? '<br><small><strong>Detalle:</strong> ' . htmlspecialchars($detalle_envio) . '</small>' : '';
+                        $message = '<div class="alert alert-danger">Error al enviar el correo al administrador. Intentá nuevamente o contactá soporte.' . $detalle_html . '</div>';
+                        $_SESSION['paso_recuperacion'] = 1;
+                        $paso = 1;
                     }
+                } catch (Throwable $e) {
+                    error_log('Error al enviar correo: ' . $e->getMessage());
+                    $message = '<div class="alert alert-danger">Error al enviar el correo al administrador. Por favor intentá nuevamente.<br><small><strong>Detalle:</strong> ' . htmlspecialchars($e->getMessage()) . '</small></div>';
+                    $_SESSION['paso_recuperacion'] = 1;
+                    $paso = 1;
                 }
             }
-            mysqli_stmt_close($stmtToken);
+            }
         }
     }
 
-    // Verificar código ingresado
-    elseif ($verificar_codigo) {
-        $codigo_ingresado = isset($_POST['codigo']) ? trim($_POST['codigo']) : '';
+    /* ------------------------------------
+       PASO 2: verificar código ingresado
+       ------------------------------------ */ elseif ($verificar_codigo) {
+        $codigo_ingresado = trim($_POST['codigo'] ?? '');
 
-        if ($codigo_ingresado !== '') {
-            $stmt = mysqli_prepare($conn, 'SELECT id, token, expiracion, usado FROM password_reset_tokens WHERE token = ? AND usuario_id = 0 LIMIT 1');
+        if ($codigo_ingresado === '') {
+            $message = '<div class="alert alert-warning">Por favor ingresa el código de 6 dígitos.</div>';
+        } else {
+            $stmt = mysqli_prepare($conn, 'SELECT id, expiracion, usado FROM password_reset_tokens WHERE token = ? AND usuario_id = 0 LIMIT 1');
             if ($stmt) {
                 mysqli_stmt_bind_param($stmt, 's', $codigo_ingresado);
                 mysqli_stmt_execute($stmt);
-                $res = mysqli_stmt_get_result($stmt);
+                mysqli_stmt_store_result($stmt);
+                if (mysqli_stmt_num_rows($stmt) === 1) {
+                    mysqli_stmt_bind_result($stmt, $row_id, $row_expiracion, $row_usado);
+                    mysqli_stmt_fetch($stmt);
 
-                if ($res && mysqli_num_rows($res) === 1) {
-                    $row = mysqli_fetch_assoc($res);
-
-                    // Verificar si ya fue usado
-                    if ($row['usado'] == 1) {
+                    if ($row_usado == 1) {
                         $message = '<div class="alert alert-danger">Este código ya fue utilizado. Solicita uno nuevo.</div>';
-                        $paso = 1;
                         $_SESSION['paso_recuperacion'] = 1;
-                    }
-                    // Verificar si expiró
-                    elseif (strtotime($row['expiracion']) < time()) {
+                        $paso = 1;
+                    } elseif ($row_expiracion === null || strtotime($row_expiracion) < time()) {
                         $message = '<div class="alert alert-danger">Este código ha expirado. Solicita uno nuevo.</div>';
-                        $paso = 1;
                         $_SESSION['paso_recuperacion'] = 1;
+                        $paso = 1;
                     } else {
-                        $paso = 3;
                         $_SESSION['paso_recuperacion'] = 3;
-                        $_SESSION['token_id'] = $row['id'];
+                        $_SESSION['token_id'] = $row_id;
+                        $paso = 3;
                         $message = '<div class="alert alert-success">¡Código verificado! Ahora ingresa tu usuario actual y el nuevo usuario.</div>';
                     }
                 } else {
                     $message = '<div class="alert alert-danger">Código inválido. Verifica e intenta nuevamente.</div>';
                 }
                 mysqli_stmt_close($stmt);
+            } else {
+                $message = '<div class="alert alert-danger">Error interno al verificar el código.</div>';
             }
-        } else {
-            $message = '<div class="alert alert-warning">Por favor ingresa el código de 6 dígitos.</div>';
         }
     }
 
-    // Cambiar usuario
-    elseif ($cambiar_usuario) {
-        $usuario_actual = isset($_POST['usuario_actual']) ? trim($_POST['usuario_actual']) : '';
-        $nuevo_usuario = isset($_POST['nuevo_usuario']) ? trim($_POST['nuevo_usuario']) : '';
-        $token_id = isset($_POST['token_id']) ? intval($_POST['token_id']) : 0;
+    /* ------------------------------------
+       PASO 3: cambiar usuario
+       ------------------------------------ */ elseif ($cambiar_usuario) {
+        $usuario_actual = trim($_POST['usuario_actual'] ?? '');
+        $nuevo_usuario  = trim($_POST['nuevo_usuario'] ?? '');
+        $token_id       = intval($_POST['token_id'] ?? 0);
 
         $errors = [];
 
-        // Validar que el usuario actual existe en la base de datos
-        $stmt_check_actual = mysqli_prepare($conn, 'SELECT id, usuario FROM usuarios_sistema WHERE usuario = ? LIMIT 1');
-        if ($stmt_check_actual) {
-            mysqli_stmt_bind_param($stmt_check_actual, 's', $usuario_actual);
-            mysqli_stmt_execute($stmt_check_actual);
-            $res_actual = mysqli_stmt_get_result($stmt_check_actual);
-
-            if (!$res_actual || mysqli_num_rows($res_actual) !== 1) {
-                $errors[] = 'El usuario actual no existe en el sistema.';
-            } else {
-                $row_actual = mysqli_fetch_assoc($res_actual);
-                $usuario_id = $row_actual['id'];
-            }
-            mysqli_stmt_close($stmt_check_actual);
+        if ($usuario_actual === '') {
+            $errors[] = 'Seleccioná tu usuario actual.';
         }
-
-        // Validaciones
         if (!preg_match('/^[A-Za-z0-9]{3,30}$/', $nuevo_usuario)) {
             $errors[] = 'El nuevo usuario debe tener solo letras y números (3 a 30 caracteres).';
         }
 
-        // Verificar que el nuevo usuario no esté en uso (excepto si es el mismo)
-        if ($nuevo_usuario !== $usuario_actual) {
-            $stmt_check_nuevo = mysqli_prepare($conn, 'SELECT id FROM usuarios_sistema WHERE usuario = ? LIMIT 1');
-            if ($stmt_check_nuevo) {
-                mysqli_stmt_bind_param($stmt_check_nuevo, 's', $nuevo_usuario);
-                mysqli_stmt_execute($stmt_check_nuevo);
-                $res_nuevo = mysqli_stmt_get_result($stmt_check_nuevo);
+        if (empty($errors)) {
+            $stmtCheck = mysqli_prepare($conn, 'SELECT id FROM usuarios_sistema WHERE usuario = ? LIMIT 1');
+            if ($stmtCheck) {
+                mysqli_stmt_bind_param($stmtCheck, 's', $usuario_actual);
+                mysqli_stmt_execute($stmtCheck);
+                mysqli_stmt_store_result($stmtCheck);
+                if (mysqli_stmt_num_rows($stmtCheck) !== 1) {
+                    $errors[] = 'El usuario actual no existe en el sistema.';
+                }
+                mysqli_stmt_close($stmtCheck);
+            } else {
+                $errors[] = 'Error interno comprobando el usuario actual.';
+            }
+        }
 
-                if ($res_nuevo && mysqli_num_rows($res_nuevo) > 0) {
+        if (empty($errors) && $nuevo_usuario !== $usuario_actual) {
+            $stmtCheck2 = mysqli_prepare($conn, 'SELECT id FROM usuarios_sistema WHERE usuario = ? LIMIT 1');
+            if ($stmtCheck2) {
+                mysqli_stmt_bind_param($stmtCheck2, 's', $nuevo_usuario);
+                mysqli_stmt_execute($stmtCheck2);
+                mysqli_stmt_store_result($stmtCheck2);
+                if (mysqli_stmt_num_rows($stmtCheck2) > 0) {
                     $errors[] = 'El nuevo usuario ya está en uso por otro usuario del sistema.';
                 }
-                mysqli_stmt_close($stmt_check_nuevo);
+                mysqli_stmt_close($stmtCheck2);
+            } else {
+                $errors[] = 'Error interno comprobando el nuevo usuario.';
             }
         }
 
         if (empty($errors)) {
-            // Actualizar el usuario en la base de datos
             $stmt_update = mysqli_prepare($conn, 'UPDATE usuarios_sistema SET usuario = ?, fecha_modificacion = NOW() WHERE usuario = ?');
             if ($stmt_update) {
                 mysqli_stmt_bind_param($stmt_update, 'ss', $nuevo_usuario, $usuario_actual);
+                mysqli_stmt_execute($stmt_update);
+                $affected = mysqli_stmt_affected_rows($stmt_update);
+                mysqli_stmt_close($stmt_update);
 
-                if (mysqli_stmt_execute($stmt_update)) {
-                    // Marcar código como usado
-                    $stmtMark = mysqli_prepare($conn, 'UPDATE password_reset_tokens SET usado = 1 WHERE id = ?');
-                    if ($stmtMark) {
-                        mysqli_stmt_bind_param($stmtMark, 'i', $token_id);
-                        mysqli_stmt_execute($stmtMark);
-                        mysqli_stmt_close($stmtMark);
+                if ($affected >= 0) {
+                    if ($token_id > 0) {
+                        $stmtMark = mysqli_prepare($conn, 'UPDATE password_reset_tokens SET usado = 1 WHERE id = ?');
+                        if ($stmtMark) {
+                            mysqli_stmt_bind_param($stmtMark, 'i', $token_id);
+                            mysqli_stmt_execute($stmtMark);
+                            mysqli_stmt_close($stmtMark);
+                        }
                     }
 
-                    // Limpiar sesión
-                    unset($_SESSION['paso_recuperacion']);
-                    unset($_SESSION['token_id']);
-
-                    $paso = 4; // Paso completado
+                    unset($_SESSION['paso_recuperacion'], $_SESSION['token_id']);
+                    $paso = 4;
                     $message = '<div class="alert alert-success">
                         <h5><i class="bi bi-check-circle-fill me-2"></i>¡Usuario cambiado exitosamente!</h5>
-                        <p><strong>Usuario anterior:</strong> ' . htmlspecialchars($usuario_actual) . '</p>
-                        <p><strong>Usuario nuevo:</strong> ' . htmlspecialchars($nuevo_usuario) . '</p>
-                        <hr>
-                        <p class="mb-0">Ya puedes <a href="login.php" class="alert-link fw-bold">iniciar sesión</a> con tu nuevo usuario.</p>
+                        <p class="mb-0">Ya podés iniciar sesión con tu nuevo usuario.</p>
                     </div>';
                 } else {
-                    $errors[] = 'Error al actualizar el usuario en la base de datos.';
+                    $errors[] = 'No se pudo actualizar el usuario.';
                 }
-                mysqli_stmt_close($stmt_update);
             } else {
-                $errors[] = 'Error al preparar la actualización.';
+                $errors[] = 'Error interno al actualizar el usuario.';
             }
         }
 
         if (!empty($errors)) {
-            $paso = 3; // Mantener en el paso 3
             $message = '<div class="alert alert-danger"><strong>Errores encontrados:</strong><ul class="mb-0 mt-2">';
             foreach ($errors as $e) {
                 $message .= '<li>' . htmlspecialchars($e) . '</li>';
             }
             $message .= '</ul></div>';
+            $paso = 3;
+            $_SESSION['paso_recuperacion'] = 3;
         }
     }
 }
+
+// Render layout recién después de procesar POST (permite header('Location') sin errores)
+include("includes/header.php");
 ?>
 
 <main>
@@ -230,11 +244,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <div class="card card-body rounded-4 border-2 border-light bg-white bg-opacity-50 shadow-lg p-4 d-flex align-items-center"
             style="backdrop-filter: blur(5px); max-width: 500px;">
-            <img src="includes/logo.png" alt="Gestión Laboral S.A"
+            <img src="includes/logo.png" alt="Mujeres Virtuosas"
                 class="rounded-circle mb-3 d-block mx-auto"
                 style="height:150px; width:150px; object-fit:cover;">
 
-            <!-- TÍTULO -->
             <h1 class="text-center fw-bold px-3 py-2 rounded-5 mb-4"
                 style="color: transparent; background-clip: text;-webkit-background-clip: text; -webkit-text-fill-color: transparent; border: 3px solid #8b2dec; box-shadow: 0 0 30px #8b2dec; font-family: 'Playfair Display', serif;
                 letter-spacing: 1px; background-color: #000;">Mujeres Virtuosas
@@ -243,15 +256,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <?php if ($message) echo $message; ?>
             <?php if ($paso === 4): ?>
-                <!-- COMPLETADO: Proceso terminado -->
                 <div class="text-center mt-4">
                     <a href="login.php" class="btn btn-primary btn-lg">
                         Ir a iniciar sesión
                     </a>
+
+                    <div class="mt-3">
+                        <a href="recuperar_contrasena.php?reset=1" class="btn btn-outline-secondary">
+                            Solicitar un nuevo código
+                        </a>
+                    </div>
                 </div>
 
             <?php elseif ($paso === 3): ?>
-                <!-- PASO 3: Cambiar usuario -->
                 <div class="alert alert-success">
                     <strong>Paso 3:</strong> Ingresa tu usuario actual y el nuevo usuario
                 </div>
@@ -264,12 +281,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <select name="usuario_actual" id="usuario_actual" class="form-select" required>
                             <option value="">Selecciona tu usuario actual</option>
                             <?php
-                            // Obtener usuarios de la base de datos
                             $query_usuarios = "SELECT usuario, tipo FROM usuarios_sistema ORDER BY tipo DESC, usuario";
-                            $result_usuarios = mysqli_query($conn, $query_usuarios);
-                            while ($user = mysqli_fetch_assoc($result_usuarios)) {
-                                $tipo_label = $user['tipo'] == 'jefe' ? ' (Jefe)' : ' (Empleado)';
-                                echo '<option value="' . htmlspecialchars($user['usuario']) . '">' . htmlspecialchars($user['usuario']) . $tipo_label . '</option>';
+                            if ($result_usuarios = mysqli_query($conn, $query_usuarios)) {
+                                while ($user = mysqli_fetch_assoc($result_usuarios)) {
+                                    $tipo_label = ($user['tipo'] == 'jefe') ? ' (Jefe)' : ' (Empleado)';
+                                    echo '<option value="' . htmlspecialchars($user['usuario']) . '">' . htmlspecialchars($user['usuario']) . $tipo_label . '</option>';
+                                }
+                                mysqli_free_result($result_usuarios);
                             }
                             ?>
                         </select>
@@ -292,42 +310,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </button>
                 </form>
 
+                <div class="text-center mt-3">
+                    <a href="recuperar_contrasena.php?reset=1" class="btn btn-link">
+                        ← Solicitar un nuevo código
+                    </a>
+                </div>
+
             <?php elseif ($paso === 2): ?>
-                <!-- PASO 2: Ingresar código -->
-                <?php
-                // Verificar si el correo se envió realmente
-                $correo_enviado_real = $email_disponible && defined('SMTP_PASSWORD') && SMTP_PASSWORD !== '';
-
-                // Recuperar detalles del email de la sesión si existen
-                if (isset($_SESSION['email_details'])) {
-                    $emailDetails = $_SESSION['email_details'];
-                }
-                ?>
-
-                <?php if (!$correo_enviado_real && !empty($emailDetails) && isset($emailDetails['codigo'])): ?>
-                    <!-- Mostrar simulación completa solo si NO se envió el correo -->
-                    <div class="card mt-3 mb-3" style="background-color: #f8f9fa; border: 2px dashed #6c757d;">
-                        <div class="card-header bg-secondary text-white">
-                            <strong>📧 SIMULACIÓN DE CORREO ELECTRÓNICO</strong>
-                        </div>
-                        <div class="card-body">
-                            <p><strong>Para:</strong> <?php echo htmlspecialchars($emailDetails['para']); ?></p>
-                            <p><strong>Asunto:</strong> <?php echo htmlspecialchars($emailDetails['asunto']); ?></p>
-                            <hr>
-                            <div style="padding: 15px; background: white; border-radius: 5px;">
-                                <h5>Hola,</h5>
-                                <p>Tu código de verificación es:</p>
-                                <div class="mb-3 p-3 text-center" style="background-color: #e9ecef; border-radius: 5px;">
-                                    <h2 class="text-primary fw-bold mb-0" style="letter-spacing: 5px;"><?php echo htmlspecialchars($emailDetails['codigo']); ?></h2>
-                                </div>
-                                <p><strong>📅 Expira el:</strong> <?php echo htmlspecialchars($emailDetails['expiracion']); ?></p>
-                            </div>
-                        </div>
-                    </div>
-                <?php endif; ?>
-
                 <div class="alert alert-info">
-                    <strong>Paso 2:</strong> Ingresa el código de 6 dígitos que recibiste en tu correo
+                    <strong>Paso 2:</strong> Ingresa el código de 6 dígitos que te proporcionó el administrador
                 </div>
 
                 <form action="recuperar_contrasena.php" method="post" novalidate autocomplete="off">
@@ -341,7 +332,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             autocomplete="off"
                             autofocus>
                         <small class="form-text text-muted">
-                            Código enviado a: lautaro1524arias@gmail.com
+                            Código enviado a <strong><?php echo !empty($allowed_recovery_recipients) ? htmlspecialchars($allowed_recovery_recipients[0]) : 'el correo del administrador'; ?></strong>
                         </small>
                     </div>
 
@@ -357,20 +348,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
 
             <?php else: ?>
-                <!-- PASO 1: Solicitar código -->
                 <div class="alert alert-info">
                     <strong>Paso 1:</strong> Solicita un código de verificación
                 </div>
 
-                <div class="text-center mb-3">
-                    <p>¿Olvidaste tu usuario?</p>
-                    <p class="text-muted">Se enviará un código de verificación a:</p>
-                    <p class="fw-bold text-primary">lautaro1524arias@gmail.com</p>
-                </div>
-
                 <form action="recuperar_contrasena.php" method="post" novalidate autocomplete="off">
                     <button type="submit" name="solicitar" value="1" class="btn btn-primary btn-lg w-100">
-                        Solicitar código de recuperación
+                        Enviar código de recuperación
                     </button>
                 </form>
             <?php endif; ?>
@@ -381,10 +365,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
     </div>
-    </div>
-    </div>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>
-<script src="javascript/recuperar_contrasena.js?v=<?php echo time(); ?>"></script>

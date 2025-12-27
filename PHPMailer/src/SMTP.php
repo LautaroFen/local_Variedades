@@ -145,7 +145,7 @@ class SMTP
      * $mail->Debugoutput = new myPsr3Logger;
      * ```
      *
-     * @var string|callable|\Psr\Log\LoggerInterface
+        * @var string|callable|\Psr\Log\LoggerInterface
      */
     public $Debugoutput = 'echo';
 
@@ -521,7 +521,7 @@ class SMTP
      * @param string $username The user name
      * @param string $password The password
      * @param string $authtype The auth type (CRAM-MD5, PLAIN, LOGIN, XOAUTH2)
-     * @param OAuthTokenProvider $OAuth An optional OAuthTokenProvider instance for XOAUTH2 authentication
+      * @param \PHPMailer\PHPMailer\OAuthTokenProvider $OAuth An optional OAuthTokenProvider instance for XOAUTH2 authentication
      *
      * @return bool True if successfully authenticated
      */
