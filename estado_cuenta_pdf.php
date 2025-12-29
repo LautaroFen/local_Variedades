@@ -54,95 +54,35 @@ $monto_por_cuota = $cliente['cuotas'] > 0 ? $saldo_restante / $cliente['cuotas']
 // URL: estado_cuenta_pdf.php?id=123&download=1
 // =====================================================
 if (isset($_GET['download']) && (string)$_GET['download'] === '1') {
-    $autoload = __DIR__ . '/vendor/autoload.php';
-    if (!file_exists($autoload)) {
-        header('Content-Type: text/plain; charset=UTF-8');
-        echo "ERROR: Falta vendor/autoload.php. En este servidor ejecutá: composer install\n";
-        exit;
-    }
+    require_once __DIR__ . '/includes/pdf_estado_cuenta.php';
 
-    require_once $autoload;
-
-    $cliente_nombre = isset($cliente['nombre_completo']) ? (string)$cliente['nombre_completo'] : 'cliente';
-    $cliente_nombre_file = preg_replace('/[^A-Za-z0-9_-]+/', '_', strtolower($cliente_nombre));
-    $filename = 'estado_cuenta_' . $cliente_nombre_file . '_' . date('Ymd_His') . '.pdf';
-
-    $html = '<!doctype html><html lang="es"><head><meta charset="UTF-8">'
-        . '<style>'
-        . 'body{font-family:DejaVu Sans, Arial, sans-serif;font-size:12px;color:#111;}'
-        . 'h2{margin:0 0 4px 0;} .muted{color:#666;}'
-        . '.box{border:1px solid #ddd;border-radius:6px;padding:10px;margin:10px 0;}'
-        . 'table{width:100%;border-collapse:collapse;margin-top:8px;}'
-        . 'th,td{border:1px solid #ddd;padding:6px;}'
-        . 'th{background:#f3f4f6;text-align:left;}'
-        . '.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;color:#fff;}'
-        . '.b-success{background:#16a34a;} .b-warning{background:#f59e0b;}'
-        . '</style></head><body>';
-
-    $html .= '<div class="box">'
-        . '<h2>Mujeres Virtuosas</h2>'
-        . '<div class="muted">Estado de Cuenta</div>'
-        . '<div class="muted">Generado el ' . date('d/m/Y H:i') . '</div>'
-        . '</div>';
-
-    $html .= '<div class="box">'
-        . '<strong>Nombre:</strong> ' . htmlspecialchars($cliente['nombre_completo']) . '<br>'
-        . '<strong>Teléfono:</strong> ' . htmlspecialchars($cliente['telefono']) . '<br>'
-        . '<strong>Dirección:</strong> ' . htmlspecialchars($cliente['direccion']) . '<br>'
-        . '</div>';
-
-    $html .= '<div class="box">'
-        . '<strong>Artículos:</strong><br>'
-        . nl2br(htmlspecialchars($cliente['articulos']))
-        . '</div>';
-
-    $html .= '<div class="box">'
-        . '<strong>Detalle económico</strong><br>'
-        . 'Valor total: $' . number_format((float)$cliente['valor_total'], 2, ',', '.') . '<br>'
-        . 'Seña / Adelanto: $' . number_format((float)$sena, 2, ',', '.') . '<br>'
-        . 'Saldo restante: $' . number_format((float)$saldo_restante, 2, ',', '.') . '<br>'
-        . 'Cuotas: ' . (int)$cliente['cuotas'] . '<br>'
-        . 'Monto por cuota: $' . number_format((float)$monto_por_cuota, 2, ',', '.') . '<br>'
-        . '</div>';
-
-    $html .= '<div class="box">'
-        . '<strong>Calendario de pagos</strong><br>'
-        . '<span class="muted">Progreso: ' . (int)$cuotas_pagadas . ' de ' . (int)$total_cuotas . ' (' . number_format((float)$progreso, 1) . '%)</span>';
-
-    $html .= '<table><thead><tr>'
-        . '<th>Cuota</th><th>Fecha programada</th><th>Monto</th><th>Estado</th><th>Fecha pago</th>'
-        . '</tr></thead><tbody>';
-
+    $pagos = [];
     if ($resultado_pagos && mysqli_num_rows($resultado_pagos) > 0) {
         mysqli_data_seek($resultado_pagos, 0);
         while ($pago = mysqli_fetch_assoc($resultado_pagos)) {
-            $estado = $pago['estado'] == 'pagado' ? 'Pagado' : 'Pendiente';
-            $badgeClass = $pago['estado'] == 'pagado' ? 'b-success' : 'b-warning';
-            $fechaPagoTexto = $pago['fecha_pago'] ? date('d/m/Y', strtotime($pago['fecha_pago'])) : '-';
-            $html .= '<tr>'
-                . '<td><strong>' . (int)$pago['numero_cuota'] . '</strong></td>'
-                . '<td>' . date('d/m/Y', strtotime($pago['fecha_programada'])) . '</td>'
-                . '<td>$' . number_format((float)$pago['monto'], 2, ',', '.') . '</td>'
-                . '<td><span class="badge ' . $badgeClass . '">' . $estado . '</span></td>'
-                . '<td>' . $fechaPagoTexto . '</td>'
-                . '</tr>';
+            $pagos[] = $pago;
         }
-    } else {
-        $html .= '<tr><td colspan="5" style="text-align:center" class="muted">No hay cuotas programadas para este cliente.</td></tr>';
     }
 
-    $html .= '</tbody></table></div>';
-    $html .= '</body></html>';
+    try {
+        $filename = mv_estado_cuenta_filename($cliente);
+        $pdfBytes = mv_estado_cuenta_pdf_bytes(
+            $cliente,
+            $pagos,
+            [
+                'cuotas_pagadas' => (int)$cuotas_pagadas,
+                'total_cuotas' => (int)$total_cuotas,
+            ]
+        );
+    } catch (Throwable $e) {
+        header('Content-Type: text/plain; charset=UTF-8');
+        echo "ERROR al generar PDF: " . $e->getMessage() . "\n";
+        exit;
+    }
 
-    $options = new \Dompdf\Options();
-    $options->set('defaultFont', 'DejaVu Sans');
-    $options->set('isRemoteEnabled', false);
-
-    $dompdf = new \Dompdf\Dompdf($options);
-    $dompdf->loadHtml($html, 'UTF-8');
-    $dompdf->setPaper('A4', 'portrait');
-    $dompdf->render();
-    $dompdf->stream($filename, ['Attachment' => true]);
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    echo $pdfBytes;
     exit;
 }
 ?>

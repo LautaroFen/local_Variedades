@@ -23,6 +23,45 @@ if ($_SESSION['tipo_usuario'] != 'jefe') {
     exit();
 }
 
+// Volver: mismo criterio que ver.php (conservar tab y volver a la fila)
+$volver_url = 'index.php';
+$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$tab = '';
+
+if (isset($_GET['tab'])) {
+    $tab = strtolower((string)$_GET['tab']);
+} elseif (!empty($_SERVER['HTTP_REFERER'])) {
+    $ref = (string)$_SERVER['HTTP_REFERER'];
+    $parts = parse_url($ref);
+    $path = isset($parts['path']) ? (string)$parts['path'] : '';
+    $isIndex = ($path !== '' && preg_match('~/index\.php$~', $path));
+    if ($isIndex && isset($parts['query']) && (string)$parts['query'] !== '') {
+        parse_str((string)$parts['query'], $qs);
+        if (isset($qs['tab'])) {
+            $tab = strtolower((string)$qs['tab']);
+        }
+    }
+}
+
+if (!in_array($tab, ['pendientes', 'atrasados', 'finalizados'], true)) {
+    $tab = '';
+}
+
+if ($tab !== '' && $id > 0) {
+    $volver_url = 'index.php?tab=' . urlencode($tab) . '#cliente-' . $id;
+} elseif (!empty($_SERVER['HTTP_REFERER'])) {
+    // Si venimos desde index.php con otros parámetros, conservarlos y volver a la fila
+    $ref = (string)$_SERVER['HTTP_REFERER'];
+    $parts = parse_url($ref);
+    $path = isset($parts['path']) ? (string)$parts['path'] : '';
+    $isIndex = ($path !== '' && preg_match('~/index\.php$~', $path));
+    if ($isIndex) {
+        $qs = (isset($parts['query']) && (string)$parts['query'] !== '') ? ('?' . (string)$parts['query']) : '';
+        $anchor = ($id > 0) ? ('#cliente-' . $id) : '';
+        $volver_url = 'index.php' . $qs . $anchor;
+    }
+}
+
 if (isset($_GET['id'])) {
     $id = intval($_GET['id']);
     $stmt = mysqli_prepare($conn, "SELECT * FROM clientes WHERE id=?");
@@ -35,6 +74,7 @@ if (isset($_GET['id'])) {
         mysqli_stmt_close($stmt);
         $nombre_completo = $row['nombre_completo'];
         $telefono = $row['telefono'];
+        $email = isset($row['email']) ? $row['email'] : '';
         $barrio = $row['barrio'];
         $direccion = $row['direccion'];
         $articulos = $row['articulos'];
@@ -50,6 +90,7 @@ if (isset($_POST['actualizar'])) {
     $id = intval($_GET['id']);
     $nombre_completo = mysqli_real_escape_string($conn, trim($_POST['nombre_completo']));
     $telefono = mysqli_real_escape_string($conn, trim($_POST['telefono']));
+    $email = isset($_POST['email']) ? trim((string)$_POST['email']) : '';
     $barrio = mysqli_real_escape_string($conn, trim($_POST['barrio']));
     $direccion = mysqli_real_escape_string($conn, trim($_POST['direccion']));
     $articulos = mysqli_real_escape_string($conn, trim($_POST['articulos']));
@@ -65,6 +106,9 @@ if (isset($_POST['actualizar'])) {
     }
     if (!preg_match('/^\d{10,15}$/', $telefono)) {
         $errors[] = 'Teléfono inválido: debe tener entre 10 y 15 dígitos.';
+    }
+    if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+        $errors[] = 'Email inválido.';
     }
     if (strlen($articulos) > 500) {
         $errors[] = 'Artículos: máximo 500 caracteres.';
@@ -92,9 +136,12 @@ if (isset($_POST['actualizar'])) {
     }
 
     // Actualizar el cliente
-    $stmt = mysqli_prepare($conn, "UPDATE clientes SET nombre_completo = ?, telefono = ?, barrio = ?, direccion = ?, articulos = ?, valor_total = ?, sena = ?, frecuencia_pago = ?, cuotas = ? WHERE id = ?");
+    // Si la columna email en tu BD es NOT NULL, guardamos '' cuando viene vacío.
+    $email_db = $email;
+
+    $stmt = mysqli_prepare($conn, "UPDATE clientes SET nombre_completo = ?, telefono = ?, email = ?, barrio = ?, direccion = ?, articulos = ?, valor_total = ?, sena = ?, frecuencia_pago = ?, cuotas = ? WHERE id = ?");
     if ($stmt) {
-        mysqli_stmt_bind_param($stmt, 'sssssddsii', $nombre_completo, $telefono, $barrio, $direccion, $articulos, $valor_total, $sena, $frecuencia_pago, $cuotas, $id);
+        mysqli_stmt_bind_param($stmt, 'ssssssddsii', $nombre_completo, $telefono, $email_db, $barrio, $direccion, $articulos, $valor_total, $sena, $frecuencia_pago, $cuotas, $id);
         mysqli_stmt_execute($stmt);
         mysqli_stmt_close($stmt);
 
@@ -116,7 +163,7 @@ if (isset($_POST['actualizar'])) {
 
 <?php include("includes/header.php"); ?>
 
-<main>
+<main class="pb-4">
 
     <div class="container p-4">
         <div class="col-12 ">
@@ -143,6 +190,9 @@ if (isset($_POST['actualizar'])) {
                         <label class="form-label" class="form-label">Teléfono</label>
                         <input type="text" name="telefono" value="<?php echo htmlspecialchars($telefono); ?>" class="form-control mb-3" placeholder="Teléfono" pattern="\d{10,15}" inputmode="numeric" minlength="10" maxlength="15" required title="Entre 10 y 15 dígitos" autocomplete="off">
 
+                        <label class="form-label" class="form-label">Email</label>
+                        <input type="email" name="email" value="<?php echo htmlspecialchars(isset($email) ? $email : ''); ?>" class="form-control mb-3" placeholder="Email" autocomplete="off">
+
                         <label class="form-label" class="form-label">Barrio</label>
                         <input type="text" name="barrio" value="<?php echo htmlspecialchars($barrio); ?>" class="form-control mb-3" placeholder="Barrio" required autocomplete="off">
 
@@ -159,13 +209,6 @@ if (isset($_POST['actualizar'])) {
                         <label class="form-label" class="form-label">Seña / Adelanto</label>
                         <input type="number" name="sena" id="sena_edit" value="<?php echo htmlspecialchars($sena); ?>" class="form-control mb-3" placeholder="Seña / Adelanto" step="0.01" min="0" autocomplete="off">
 
-                        <!-- <select name="frecuencia_pago" class="form-control" required autocomplete="off">
-                                <option value="">Frecuencia de pago</option>
-                                <option value="semanal" <?php echo ($frecuencia_pago == 'semanal') ? 'selected' : ''; ?>>Semanal</option>
-                                <option value="quincenal" <?php echo ($frecuencia_pago == 'quincenal') ? 'selected' : ''; ?>>Quincenal</option>
-                                <option value="mensual" <?php echo ($frecuencia_pago == 'mensual') ? 'selected' : ''; ?>>Mensual</option>
-                            </select>
-                            <input type="number" name="cuotas" id="cuotas_edit" value="<?php echo htmlspecialchars($cuotas); ?>" class="form-control" placeholder="Número de cuotas" min="1" max="60" required autocomplete="off"> -->
                         <label class="form-label">Monto por cuota</label>
                         <div id="monto_cuota_display_edit" class="form-control bg-light" style="font-weight: bold; color: #28a745;">
                             $<?php
@@ -173,13 +216,12 @@ if (isset($_POST['actualizar'])) {
                                 echo number_format($saldo / $cuotas, 2, ',', '.');
                                 ?>
                         </div>
-                        <button type="submit" class="btn btn-success btn-block float-end mt-3" name="actualizar">Actualizar</button>
-                    </form>
-                    <a href="index.php" type="button" class="btn btn-secondary mt-2">Volver a inicio</a>
 
-                    <!-- Sección para editar pagos -->
-                    <hr class="my-4">
-                    <h4 class="mb-3">Gestionar fechas de pago</h4>
+                        <div class="text-end mt-3">
+                            <button type="submit" class="btn btn-success" name="actualizar">Actualizar</button>
+                        </div>
+                        
+                    </form>
 
                     <?php
                     // Obtener pagos del cliente
@@ -188,8 +230,10 @@ if (isset($_POST['actualizar'])) {
                         $resultado_pagos = mysqli_query($conn, $query_pagos);
 
                         if ($resultado_pagos && mysqli_num_rows($resultado_pagos) > 0) {
-                    ?>
-                            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    ?>  
+                            
+                            <div class="table-responsive h-100" style=" overflow-y: auto;">
+                                <h4 class="mb-3">Gestionar fechas de pago</h4>
                                 <table class="table table-bordered table-sm">
                                     <thead>
                                         <tr>
@@ -249,6 +293,11 @@ if (isset($_POST['actualizar'])) {
                 </div>
                 </col-md>
             </div>
+        </div>
+    </div>
+    <div class="row mt-5 mb-5">
+        <div class="col-12 text-center">
+            <a href="<?php echo htmlspecialchars(isset($volver_url) ? $volver_url : 'index.php'); ?>" class="btn btn-success">Volver al inicio</a>
         </div>
     </div>
 </main>

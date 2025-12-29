@@ -183,7 +183,7 @@ include("includes/header.php");
                                                     data-bs-target="#ventasModal<?php echo $empleado['id']; ?>"
                                                     title="Ver historial de ventas">
                                                     <i class="bi bi-bar-chart-line"></i>
-                                                     <?php echo $total_ventas; ?>
+                                                    <?php echo $total_ventas; ?>
                                                 </button>
                                             </td>
                                             <td class="text-end">
@@ -252,6 +252,11 @@ include("includes/header.php");
             </div>
         </div>
     </div>
+     <div class="row mt-5">
+            <div class="col-12 text-center">
+                <a href="index.php" class="btn btn-primary btn-lg me-2">Volver al Inicio</a>
+            </div>
+        </div>
 </main>
 
 <!-- Modales fuera de la tabla -->
@@ -378,9 +383,3 @@ include("includes/header.php");
         </div>
     </div>
 <?php endforeach; ?>
-
-<div class="mt-3">
-    <a href="index.php" class="btn btn-secondary">← Volver al inicio</a>
-</div>
-</div>
-

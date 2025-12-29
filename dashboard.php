@@ -266,7 +266,7 @@ include("includes/header.php");
                     </div>
                     <?php if (mysqli_num_rows($resultado_atrasados_detalle) > 0): ?>
                         <div class="card-footer text-center">
-                            <a href="index.php?estado=atrasado" class="btn btn-sm btn-danger">
+                            <a href="index.php?tab=atrasados#grilla-compras" class="btn btn-sm btn-danger">
                                 Ver todos los clientes con pagos atrasados →
                             </a>
                         </div>
@@ -376,23 +376,23 @@ include("includes/header.php");
         </div>
 
         <!-- TOP 5 CLIENTES CON MAYOR DEUDA -->
-        <div class="row">
-            <div class="col-12">
-                <div class="card hover-lift">
+        <div class="row g-0">
+            <div class="col-12 mb-4">
+                <div class="card w-100">
                     <div class="card-header">
                         <h5 class="mb-0">Top 5 - Clientes con Mayor Deuda Pendiente</h5>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table mb-0">
-                                <thead>
+                                <!-- <thead>
                                     <tr>
                                         <th>#</th>
                                         <th>Nombre</th>
                                         <th>Teléfono</th>
                                         <th>Deuda Pendiente</th>
                                     </tr>
-                                </thead>
+                                </thead> -->
                                 <tbody>
                                     <?php
                                     if (mysqli_num_rows($resultado_top_deuda) > 0) {

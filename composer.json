@@ -2,6 +2,7 @@
     "name": "local-mv/app",
     "description": "Local_MV",
     "require": {
-        "dompdf/dompdf": "^3.1"
+        "dompdf/dompdf": "^3.1",
+        "phpmailer/phpmailer": "^6.10"
     }
 }

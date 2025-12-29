@@ -7,6 +7,18 @@ if (!isset($_SESSION['usuario'])) {
     exit();
 }
 
+// Volver: si venimos desde index.php, conservar sus parámetros (ej: ?tab=atrasados)
+$volver_url = 'index.php';
+if (!empty($_SERVER['HTTP_REFERER'])) {
+    $ref = (string)$_SERVER['HTTP_REFERER'];
+    $parts = parse_url($ref);
+    $path = isset($parts['path']) ? (string)$parts['path'] : '';
+    $isIndex = ($path !== '' && preg_match('~/index\.php$~', $path));
+    if ($isIndex) {
+        $volver_url = 'index.php' . (isset($parts['query']) && (string)$parts['query'] !== '' ? ('?' . $parts['query']) : '');
+    }
+}
+
 $nombre_completo = '';
 $telefono = '';
 $barrio = '';
@@ -15,11 +27,23 @@ $articulos = '';
 $valor_total = '';
 $sena = 0;
 $frecuencia_pago = '';
+$frecuencia_pago_label = '';
 $cuotas = '';
 $monto_por_cuota = '';
 
 if (isset($_GET['id'])) {
     $id = intval($_GET['id']); // sanear a entero
+    $tab = isset($_GET['tab']) ? strtolower((string)$_GET['tab']) : '';
+    if (!in_array($tab, ['pendientes', 'atrasados', 'finalizados'], true)) {
+        $tab = '';
+    }
+
+    // Volver: si viene tab desde index.php, volver a ese tab y a la fila seleccionada
+    $volver_url = 'index.php';
+    if ($tab !== '' && $id > 0) {
+        $volver_url = 'index.php?tab=' . urlencode($tab) . '#cliente-' . $id;
+    }
+
     if ($id > 0) {
         $stmt = mysqli_prepare($conn, "SELECT * FROM clientes WHERE id=?");
         mysqli_stmt_bind_param($stmt, 'i', $id);
@@ -38,6 +62,11 @@ if (isset($_GET['id'])) {
             $sena = isset($row['sena']) ? $row['sena'] : 0;
             $frecuencia_pago = isset($row['frecuencia_pago']) ? $row['frecuencia_pago'] : '';
             $cuotas = isset($row['cuotas']) ? $row['cuotas'] : '';
+
+            $frecuencia_raw = (string)$frecuencia_pago;
+            $frecuencia_pago_label = ($frecuencia_raw === 'unico_pago')
+                ? 'Único pago'
+                : ucfirst($frecuencia_raw);
 
             // Calcular saldo restante y monto por cuota
             $saldo_restante = $valor_total - $sena;
@@ -91,7 +120,7 @@ if (isset($_GET['id'])) {
                         <input type="text" class="form-control mb-3" value="$<?php echo number_format($saldo_restante, 2, ',', '.'); ?>" class="form-control" readonly style="font-weight: bold; color: #dc3545;">
 
                         <label class="form-label" class="form-label">Frecuencia de pago</label>
-                        <input type="text" class="form-control mb-3" value="<?php echo ucfirst(htmlspecialchars($frecuencia_pago)); ?>" class="form-control" readonly>
+                        <input type="text" class="form-control mb-3" value="<?php echo htmlspecialchars($frecuencia_pago_label); ?>" class="form-control" readonly>
 
                         <label class="form-label" class="form-label">Cuotas</label>
                         <input type="text" class="form-control mb-3" value="<?php echo htmlspecialchars($cuotas); ?>" class="form-control" readonly>
@@ -146,7 +175,7 @@ if (isset($_GET['id'])) {
 
                         <div class="table-responsive">
                             <table class='table table-striped table-hover align-middle mb-0'>
-                                <thead>    
+                                <thead>
                                     <tr>
                                         <th>Cuota</th>
                                         <th>Fecha programada</th>
@@ -188,8 +217,8 @@ if (isset($_GET['id'])) {
                                                     <span class="text-muted">-</span>
                                                 <?php endif; ?>
                                             </td>
-                                            </tr>
-                                        <?php } ?>
+                                        </tr>
+                                    <?php } ?>
                                 </tbody>
                             </table>
                         </div>
@@ -200,8 +229,10 @@ if (isset($_GET['id'])) {
                     <?php } ?>
                 </div>
             </div>
-            <div class="text-end mt-3">
-                <a href="index.php" class="btn btn-success">Volver</a>
+            <div class="row mt-5">
+                <div class="col-12 text-center">
+                    <a href="<?php echo htmlspecialchars(isset($volver_url) ? $volver_url : 'index.php'); ?>" class="btn btn-success">Volver al inicio</a>
+                </div>
             </div>
         </div>
     </div>

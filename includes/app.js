@@ -185,6 +185,74 @@ const App = {
                 }
             });
         });
+
+        // Validación Bootstrap mínima para el alta de cliente (guardar.php)
+        // (sin listeners extra) solo en submit.
+        const formGuardar = document.querySelector('#form-guardar-cliente') || document.querySelector('form[action="guardar.php"]');
+        if (formGuardar) {
+            const emailInput = formGuardar.querySelector('#email');
+            const enviarPdfCheckbox = formGuardar.querySelector('#enviar_pdf_email');
+            const emailFeedback = formGuardar.querySelector('#emailFeedback');
+            const emailLabel = formGuardar.querySelector('label[for="email"]');
+
+            // UX: al escribir, limpiar el error y el texto de feedback (el submit vuelve a validar).
+            if (emailInput) {
+                emailInput.addEventListener('input', () => {
+                    emailInput.setCustomValidity('');
+                    if (emailFeedback) emailFeedback.textContent = '';
+                    if (emailLabel) emailLabel.classList.remove('text-danger');
+                });
+            }
+
+            formGuardar.addEventListener('submit', (event) => {
+                if (emailInput) {
+                    const emailValue = (emailInput.value || '').trim();
+                    const wantsPdf = !!(enviarPdfCheckbox && enviarPdfCheckbox.checked);
+
+                    // Reset y validaciones específicas.
+                    emailInput.setCustomValidity('');
+
+                    if (wantsPdf && emailValue === '') {
+                        if (emailFeedback) emailFeedback.textContent = 'Para enviar el PDF, debés ingresar un email.';
+                        emailInput.setCustomValidity('required');
+                    } else if (emailValue !== '' && !emailInput.checkValidity()) {
+                        if (emailFeedback) emailFeedback.textContent = 'El email no es válido.';
+                        // Mantener inválido (type=email ya lo detecta), pero forzamos para feedback consistente
+                        emailInput.setCustomValidity('invalid');
+                    } else {
+                        // Email vacío (opcional) o válido: no mostrar mensaje.
+                        if (emailFeedback) emailFeedback.textContent = '';
+                        emailInput.setCustomValidity('');
+                    }
+
+					// Marcar el label en rojo si el campo es inválido (Bootstrap)
+					if (emailLabel) {
+						emailLabel.classList.toggle('text-danger', !emailInput.checkValidity());
+					}
+                }
+
+                if (!formGuardar.checkValidity()) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+
+                formGuardar.classList.add('was-validated');
+
+                    // UX: llevar el foco al primer campo con datos inválidos.
+                    if (!formGuardar.checkValidity()) {
+                        const firstInvalid = formGuardar.querySelector('input:invalid, select:invalid, textarea:invalid');
+                        if (firstInvalid) {
+                            // Asegurar que sea visible
+                            if (typeof firstInvalid.scrollIntoView === 'function') {
+                                firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                            if (typeof firstInvalid.focus === 'function') {
+                                firstInvalid.focus();
+                            }
+                        }
+                    }
+            }, false);
+        }
     },
 
 
@@ -351,27 +419,38 @@ const App = {
 // FUNCIONES ESPECÍFICAS DEL FORMULARIO
 // ============================================
 
-function calcularMontoCuota() {
-    const valorTotal = parseFloat(document.getElementById('valor_total')?.value) || 0;
-    const sena = parseFloat(document.getElementById('sena')?.value) || 0;
-    const cuotas = parseInt(document.getElementById('cuotas')?.value) || 1;
+// Nota: index.php también define calcularMontoCuota() en un <script> inline.
+// Como este archivo se carga con `defer`, si la redefinimos acá, pisamos la versión de index.php.
+// Para evitar conflictos, solo definimos una versión por defecto si no existe ya.
+if (typeof window.calcularMontoCuota !== 'function') {
+    window.calcularMontoCuota = function calcularMontoCuota() {
+        const valorTotal = parseFloat(document.getElementById('valor_total')?.value) || 0;
+        const sena = parseFloat(document.getElementById('sena')?.value) || 0;
+        const cuotas = parseInt(document.getElementById('cuotas')?.value) || 1;
 
-    if (sena > valorTotal) {
-        document.getElementById('sena').value = valorTotal;
-        App.showToast('La seña no puede ser mayor al valor total', 'warning');
-        return;
-    }
-
-    const saldoRestante = valorTotal - sena;
-
-    if (saldoRestante > 0 && cuotas > 0) {
-        const montoCuota = saldoRestante / cuotas;
-        const montoCuotaEl = document.getElementById('monto-cuota');
-        if (montoCuotaEl) {
-            montoCuotaEl.textContent = App.formatCurrency(montoCuota);
-            document.getElementById('info-cuota').style.display = 'block';
+        if (sena > valorTotal) {
+            const senaEl = document.getElementById('sena');
+            if (senaEl) senaEl.value = valorTotal;
+            if (typeof App?.showToast === 'function') {
+                App.showToast('La seña no puede ser mayor al valor total', 'warning');
+            }
+            return;
         }
-    }
+
+        const saldoRestante = valorTotal - sena;
+
+        if (saldoRestante > 0 && cuotas > 0) {
+            const montoCuota = saldoRestante / cuotas;
+            const montoCuotaEl = document.getElementById('monto-cuota');
+            const infoCuotaEl = document.getElementById('info-cuota');
+            if (montoCuotaEl) {
+                montoCuotaEl.textContent = typeof App?.formatCurrency === 'function'
+                    ? App.formatCurrency(montoCuota)
+                    : String(montoCuota);
+            }
+            if (infoCuotaEl) infoCuotaEl.style.display = 'block';
+        }
+    };
 }
 
 // ============================================
@@ -531,6 +610,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Inicializar sistema de dropdowns
     DropdownManager.init();
+
+    // Si la URL trae un ancla a una fila (ej: #cliente-123),
+    // forzar el scroll a esa fila incluso si está dentro de un contenedor con overflow (table-responsive).
+    // El scroll nativo por hash no siempre funciona cuando el contenido está dentro de un contenedor scrolleable.
+    const hash = window.location.hash || '';
+    if (hash.startsWith('#cliente-')) {
+        setTimeout(() => {
+            const targetRow = document.querySelector(hash);
+            if (targetRow && typeof targetRow.scrollIntoView === 'function') {
+                targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 100);
+    }
 
     // Eventos específicos del formulario de clientes
     const valorTotal = document.getElementById('valor_total');

@@ -1,4 +1,3 @@
-
 <?php
 // Inicia la sesión sólo si no está iniciada (evita el notice)
 if (session_status() === PHP_SESSION_NONE) {

@@ -15,9 +15,15 @@
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-require_once __DIR__ . '/src/Exception.php';
-require_once __DIR__ . '/src/PHPMailer.php';
-require_once __DIR__ . '/src/SMTP.php';
+// Preferir Composer (vendor/) y dejar fallback a la copia local.
+$__mv_vendor_autoload = dirname(__DIR__) . '/vendor/autoload.php';
+if (is_file($__mv_vendor_autoload)) {
+	require_once $__mv_vendor_autoload;
+} else {
+	require_once __DIR__ . '/src/Exception.php';
+	require_once __DIR__ . '/src/PHPMailer.php';
+	require_once __DIR__ . '/src/SMTP.php';
+}
 
 function mv_env_or_b64($plainEnv, $b64Env, $default = '') {
 	$plain = getenv($plainEnv);
@@ -60,8 +66,8 @@ $__mv_smtp_secure = getenv('MV_SMTP_SECURE');
 
 	Si dejás email_to vacío, por defecto se usa el mismo smtp_username.
 */
-$__default_smtp_username_b64 = 'ZmVuLmxhdXRhcm9AeWFob28uY29t';
-$__default_smtp_password_b64 = 'Z2xoZHpwYmh2bXlzY3hmaw==';
+$__default_smtp_username_b64 = '';
+$__default_smtp_password_b64 = '';
 $__default_email_to_b64 = '';
 
 $__default_smtp_username = mv_b64_value($__default_smtp_username_b64, '');
@@ -171,8 +177,103 @@ function mv_enviar_correo($to, $subject, $htmlBody) {
 	}
 }
 
+// Envío con adjuntos (por ejemplo: PDF).
+// $attachments: array de items con:
+// - ['data' => (string)bytes, 'name' => 'archivo.pdf', 'type' => 'application/pdf']
+//   o
+// - ['path' => 'C:/ruta/archivo.pdf', 'name' => 'archivo.pdf', 'type' => 'application/pdf']
+function mv_enviar_correo_con_adjuntos($to, $subject, $htmlBody, $attachments = []) {
+	$mail = new PHPMailer(true);
+	try {
+		$GLOBALS['MAILER_LAST_ERROR'] = '';
+
+		if (!defined('SMTP_USERNAME') || trim((string)SMTP_USERNAME) === '' || !defined('SMTP_PASSWORD') || trim((string)SMTP_PASSWORD) === '') {
+			throw new Exception('SMTP no configurado. Define MV_SMTP_USERNAME y MV_SMTP_PASSWORD (o sus variantes _B64).');
+		}
+		if (!defined('EMAIL_FROM') || trim((string)EMAIL_FROM) === '') {
+			throw new Exception('EMAIL_FROM no configurado (define MV_EMAIL_FROM o MV_SMTP_USERNAME).');
+		}
+
+		$mail->isSMTP();
+		$mail->Host     = SMTP_HOST;
+		$mail->Port     = SMTP_PORT;
+		$mail->SMTPAuth = true;
+		$mail->Username = SMTP_USERNAME;
+		$mail->Password = (string)SMTP_PASSWORD;
+		$mail->CharSet  = 'UTF-8';
+		$mail->Timeout  = 20;
+		$mail->SMTPAutoTLS = true;
+
+		$secure = strtolower(trim((string)SMTP_SECURE));
+		if ($secure === 'tls' || $secure === 'starttls') {
+			$mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+		} elseif ($secure === 'ssl' || $secure === 'smtps') {
+			$mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+		} else {
+			$mail->SMTPSecure = '';
+		}
+
+		$allowSelfSigned = getenv('MV_SMTP_ALLOW_SELF_SIGNED');
+		if ($allowSelfSigned !== false && (string)$allowSelfSigned === '1') {
+			$mail->SMTPOptions = [
+				'ssl' => [
+					'verify_peer' => false,
+					'verify_peer_name' => false,
+					'allow_self_signed' => true,
+				],
+			];
+		}
+
+		$debug = getenv('MV_SMTP_DEBUG');
+		if ($debug !== false && ctype_digit((string)$debug) && (int)$debug > 0) {
+			$mail->SMTPDebug = (int)$debug;
+			$mail->Debugoutput = function ($str, $level) {
+				error_log('[SMTP ' . $level . '] ' . $str);
+			};
+		}
+
+		$mail->setFrom(EMAIL_FROM, defined('EMAIL_FROM_NAME') ? EMAIL_FROM_NAME : '');
+		$mail->addAddress((string)$to);
+
+		$mail->isHTML(true);
+		$mail->Subject = (string)$subject;
+		$mail->Body    = (string)$htmlBody;
+
+		if (is_array($attachments) && !empty($attachments)) {
+			foreach ($attachments as $att) {
+				if (!is_array($att)) {
+					continue;
+				}
+
+				$name = isset($att['name']) && is_string($att['name']) && trim($att['name']) !== '' ? (string)$att['name'] : 'archivo';
+				$type = isset($att['type']) && is_string($att['type']) && trim($att['type']) !== '' ? (string)$att['type'] : 'application/octet-stream';
+
+				if (isset($att['path']) && is_string($att['path']) && is_file($att['path'])) {
+					// PHPMailer infiere MIME; pero si se pasa $type queda más explícito.
+					$mail->addAttachment($att['path'], $name, 'base64', $type);
+					continue;
+				}
+
+				if (isset($att['data']) && is_string($att['data']) && $att['data'] !== '') {
+					$mail->addStringAttachment($att['data'], $name, 'base64', $type);
+					continue;
+				}
+			}
+		}
+
+		$mail->send();
+		return true;
+	} catch (Exception $e) {
+		$detalle = trim((string)$mail->ErrorInfo) !== '' ? (string)$mail->ErrorInfo : $e->getMessage();
+		$GLOBALS['MAILER_LAST_ERROR'] = $detalle;
+		error_log('Error al enviar correo (mv_enviar_correo_con_adjuntos): ' . $detalle);
+		return false;
+	}
+}
+
 
 unset(
+	$__mv_vendor_autoload,
 	$__default_smtp_host,
 	$__default_smtp_port,
 	$__default_smtp_secure,

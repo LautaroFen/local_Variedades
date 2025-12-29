@@ -3,7 +3,7 @@ session_start();
 
 // Verificar que el usuario esté autenticado
 if (!isset($_SESSION['usuario'])) {
-    header('Location: login.php');
+    header('Location: ../login.php');
     exit;
 }
 
@@ -11,11 +11,11 @@ if (!isset($_SESSION['usuario'])) {
 if (!isset($_SESSION['tipo_usuario']) || $_SESSION['tipo_usuario'] != 'jefe') {
     $_SESSION['message'] = '⛔ Acceso denegado. No tienes permisos para exportar datos.';
     $_SESSION['message_type'] = 'danger';
-    header('Location: index.php');
+    header('Location: ../index.php');
     exit();
 }
 
-include("conexion.php");
+require_once __DIR__ . '/../conexion.php';
 
 $vendedor_id = isset($_GET['vendedor_id']) ? intval($_GET['vendedor_id']) : 0;
 

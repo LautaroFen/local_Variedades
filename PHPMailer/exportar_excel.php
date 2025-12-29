@@ -3,7 +3,7 @@ session_start();
 
 // Verificar que el usuario esté autenticado
 if (!isset($_SESSION['usuario'])) {
-    header('Location: login.php');
+    header('Location: ../login.php');
     exit;
 }
 
@@ -11,11 +11,11 @@ if (!isset($_SESSION['usuario'])) {
 if ($_SESSION['tipo_usuario'] != 'jefe') {
     $_SESSION['message'] = '⛔ Acceso denegado. No tienes permisos para exportar datos.';
     $_SESSION['message_type'] = 'danger';
-    header('Location: index.php');
+    header('Location: ../index.php');
     exit();
 }
 
-include("conexion.php");
+require_once __DIR__ . '/../conexion.php';
 
 // Consultar todos los clientes con información de pagos
 $query = "SELECT 

@@ -55,6 +55,7 @@ CREATE TABLE `clientes` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `nombre_completo` varchar(200) NOT NULL,
   `telefono` varchar(15) NOT NULL,
+  `email` varchar(200) DEFAULT NULL,
   `barrio` varchar(100) NOT NULL,
   `direccion` varchar(200) NOT NULL,
   `notas` text DEFAULT NULL,
@@ -70,6 +71,7 @@ CREATE TABLE `clientes` (
   PRIMARY KEY (`id`),
   KEY `nombre_completo` (`nombre_completo`),
   KEY `telefono` (`telefono`),
+  KEY `email` (`email`),
   KEY `idx_vendedor` (`vendedor_id`),
   CONSTRAINT `fk_vendedor` FOREIGN KEY (`vendedor_id`) REFERENCES `empleados_vendedores` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

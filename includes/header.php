@@ -111,15 +111,17 @@ if (in_array(basename($_SERVER['PHP_SELF']), $paginas_con_navbar)):
                         </li>
                     <?php endif; ?>
 
-                    <!-- Cambiar contraseña -->
-                    <li class="nav-item w-100 mb-2">
-                        <a href="<?php echo $base_path; ?>cambiar_contrasena.php"
-                            class="btn d-flex align-items-center justify-content-center gap-2 text-white fw-semibold fs-6 border-0 w-100 text-center py-2"
-                            style="background: linear-gradient(135deg, #9753fdff, #8233f8ff, #7014faff);">
-                            <i class="bi bi-key"></i>
-                            Contraseña
-                        </a>
-                    </li>
+                    <!-- Cambiar contraseña (solo jefe) -->
+                    <?php if (isset($_SESSION['tipo_usuario']) && $_SESSION['tipo_usuario'] == 'jefe'): ?>
+                        <li class="nav-item w-100 mb-2">
+                            <a href="<?php echo $base_path; ?>cambiar_contrasena.php"
+                                class="btn d-flex align-items-center justify-content-center gap-2 text-white fw-semibold fs-6 border-0 w-100 text-center py-2"
+                                style="background: linear-gradient(135deg, #9753fdff, #8233f8ff, #7014faff);">
+                                <i class="bi bi-key"></i>
+                                Contraseña
+                            </a>
+                        </li>
+                    <?php endif; ?>
 
                     <!-- Salir -->
                     <li class="nav-item w-100 mb-2">
