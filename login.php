@@ -99,7 +99,7 @@ include("includes/header.php");
                         type="password"
                         name="password"
                         id="password"
-                        class="form-control form-control-lg bg-white bg-opacity-50 text-light shadow-sm"
+                        class="form-control form-control-lg bg-white bg-opacity-50 text-black shadow-sm"
                         placeholder="Ingrese su contraseña"
                         required
                         minlength="4"
