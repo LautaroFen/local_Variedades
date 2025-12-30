@@ -1,13 +1,13 @@
-<!--Se realiza la conexión a la bd.
+<?php
+/*
+Se realiza la conexión a la bd.
 Después se obtiene el id con get.
 Se seleccionan todos los datos con ese id.
 Se busca un resultado con ese id.
 En $row se cargan los datos en un array y se vuelcan en variables con el título de las columnas
 
 Se carga el header y footer con include
--->
-
-<?php
+*/
 
 include("conexion.php");
 if (!isset($_SESSION['usuario'])) {
@@ -47,6 +47,8 @@ if (!in_array($tab, ['pendientes', 'atrasados', 'finalizados'], true)) {
     $tab = '';
 }
 
+$tab_qs = ($tab !== '') ? ('&tab=' . urlencode($tab)) : '';
+
 if ($tab !== '' && $id > 0) {
     $volver_url = 'index.php?tab=' . urlencode($tab) . '#cliente-' . $id;
 } elseif (!empty($_SERVER['HTTP_REFERER'])) {
@@ -80,8 +82,8 @@ if (isset($_GET['id'])) {
         $articulos = $row['articulos'];
         $valor_total = $row['valor_total'];
         $sena = isset($row['sena']) ? $row['sena'] : 0;
-        $frecuencia_pago = $row['frecuencia_pago'];
-        $cuotas = $row['cuotas'];
+        $frecuencia_pago = isset($row['frecuencia_pago']) ? (string)$row['frecuencia_pago'] : '';
+        $cuotas = isset($row['cuotas']) ? (int)$row['cuotas'] : 0;
     }
 }
 
@@ -96,8 +98,12 @@ if (isset($_POST['actualizar'])) {
     $articulos = mysqli_real_escape_string($conn, trim($_POST['articulos']));
     $valor_total = floatval($_POST['valor_total']);
     $sena = isset($_POST['sena']) ? floatval($_POST['sena']) : 0;
-    $frecuencia_pago = mysqli_real_escape_string($conn, $_POST['frecuencia_pago']);
-    $cuotas = intval($_POST['cuotas']);
+
+    $frecuencia_pago_raw = $_POST['frecuencia_pago'] ?? ($frecuencia_pago ?? '');
+    $frecuencia_pago = mysqli_real_escape_string($conn, (string)$frecuencia_pago_raw);
+
+    $cuotas_raw = $_POST['cuotas'] ?? ($cuotas ?? 0);
+    $cuotas = (int)$cuotas_raw;
 
     // Validaciones servidor
     $errors = [];
@@ -122,7 +128,7 @@ if (isset($_POST['actualizar'])) {
     if ($sena > $valor_total) {
         $errors[] = 'La seña no puede ser mayor al valor total.';
     }
-    if (!in_array($frecuencia_pago, ['semanal', 'quincenal', 'mensual'])) {
+    if (!in_array($frecuencia_pago, ['semanal', 'quincenal', 'mensual', 'unico_pago'], true)) {
         $errors[] = 'Frecuencia de pago inválida.';
     }
     if ($cuotas < 1 || $cuotas > 60) {
@@ -131,7 +137,7 @@ if (isset($_POST['actualizar'])) {
 
     if (!empty($errors)) {
         $_SESSION['message'] = implode(' ', $errors);
-        header('Location: editar.php?id=' . $id);
+        header('Location: editar.php?id=' . $id . $tab_qs);
         exit();
     }
 
@@ -156,7 +162,7 @@ if (isset($_POST['actualizar'])) {
     }
 
     $_SESSION['message'] = "El cliente se actualizo correctamente";
-    header('Location: editar.php?id=' . $id);
+    header('Location: editar.php?id=' . $id . $tab_qs);
 }
 
 ?>
@@ -183,7 +189,7 @@ if (isset($_POST['actualizar'])) {
                     <?php endif; ?>
 
                     <!--Actualizar con metodo POST-->
-                    <form class="form-group mb-2" action="editar.php?id=<?php echo $_GET['id']; ?>" method="POST" autocomplete="off">
+                    <form class="form-group mb-2" action="editar.php?id=<?php echo (int)$_GET['id']; ?><?php echo $tab_qs; ?>" method="POST" autocomplete="off">
                         <label class="form-label" class="form-label">Nombre completo</label>
                         <input type="text" name="nombre_completo" value="<?php echo htmlspecialchars($nombre_completo); ?>" class="form-control mb-3" placeholder="Nombre completo" pattern="[A-Za-zÀ-ÖØ-öø-ÿ\s]+" required title="Solo letras y espacios" autocomplete="off">
 
@@ -209,11 +215,26 @@ if (isset($_POST['actualizar'])) {
                         <label class="form-label" class="form-label">Seña / Adelanto</label>
                         <input type="number" name="sena" id="sena_edit" value="<?php echo htmlspecialchars($sena); ?>" class="form-control mb-3" placeholder="Seña / Adelanto" step="0.01" min="0" autocomplete="off">
 
+                        <label class="form-label">Frecuencia de pago</label>
+                        <select name="frecuencia_pago" class="form-select mb-3" required>
+                            <option value="semanal" <?php echo ((string)$frecuencia_pago === 'semanal') ? 'selected' : ''; ?>>Semanal</option>
+                            <option value="quincenal" <?php echo ((string)$frecuencia_pago === 'quincenal') ? 'selected' : ''; ?>>Quincenal</option>
+                            <option value="mensual" <?php echo ((string)$frecuencia_pago === 'mensual') ? 'selected' : ''; ?>>Mensual</option>
+                            <option value="unico_pago" <?php echo ((string)$frecuencia_pago === 'unico_pago') ? 'selected' : ''; ?>>Único pago</option>
+                        </select>
+
+                        <label class="form-label">Cuotas</label>
+                        <input type="number" name="cuotas" id="cuotas_edit" value="<?php echo htmlspecialchars((string)$cuotas); ?>" class="form-control mb-3" placeholder="Cuotas" min="1" max="60" required autocomplete="off">
+
                         <label class="form-label">Monto por cuota</label>
                         <div id="monto_cuota_display_edit" class="form-control bg-light" style="font-weight: bold; color: #28a745;">
                             $<?php
                                 $saldo = $valor_total - $sena;
-                                echo number_format($saldo / $cuotas, 2, ',', '.');
+                                $cuotas_safe = (int)$cuotas;
+                                if ($cuotas_safe < 1) {
+                                    $cuotas_safe = 1;
+                                }
+                                echo number_format($saldo / $cuotas_safe, 2, ',', '.');
                                 ?>
                         </div>
 
@@ -254,6 +275,7 @@ if (isset($_POST['actualizar'])) {
                                                     <form method="POST" action="editar_fecha_pago.php" class="d-inline">
                                                         <input type="hidden" name="pago_id" value="<?php echo $pago['id']; ?>">
                                                         <input type="hidden" name="cliente_id" value="<?php echo $id; ?>">
+                                                        <input type="hidden" name="tab" value="<?php echo htmlspecialchars($tab); ?>">
                                                         <input type="date" name="nueva_fecha" value="<?php echo $pago['fecha_programada']; ?>" class="form-control form-control-sm d-inline" style="width: auto; display: inline-block;" required>
                                                         <button type="submit" class="btn btn-primary btn-sm" title="Guardar nueva fecha">
                                                             Guardar
@@ -270,6 +292,7 @@ if (isset($_POST['actualizar'])) {
                                                         <form method="POST" action="cancelar_pago.php" style="display: inline;">
                                                             <input type="hidden" name="pago_id" value="<?php echo $pago['id']; ?>">
                                                             <input type="hidden" name="cliente_id" value="<?php echo $id; ?>">
+                                                            <input type="hidden" name="tab" value="<?php echo htmlspecialchars($tab); ?>">
                                                             <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('¿Cancelar este pago?')" title="Cancelar pago">
                                                                 Cancelar
                                                             </button>

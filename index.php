@@ -387,6 +387,15 @@ include("includes/header.php");
                     $tab_qs = urlencode((string)$tab);
                     $id = (int)$r['id'];
 
+                    $fecha_registro_raw = isset($r['fecha_registro']) ? (string)$r['fecha_registro'] : '';
+                    $fecha_registro_txt = '-';
+                    if ($fecha_registro_raw !== '') {
+                        $ts = strtotime($fecha_registro_raw);
+                        if ($ts !== false) {
+                            $fecha_registro_txt = date('d/m/Y', $ts);
+                        }
+                    }
+
                     $cuota = number_format($r["valor_total"] / $r["cuotas"], 2, ",", ".");
                     $valor_total = number_format($r["valor_total"], 2, ",", ".");
                     $es_jefe = $_SESSION["tipo_usuario"] == "jefe";
@@ -409,6 +418,7 @@ include("includes/header.php");
                         <td class='text-nowrap'>{$r['telefono']}</td>
                         <td class='text-nowrap'>{$r['email']}</td>
                         <td class='text-nowrap'>{$vendedor_nombre}</td>
+                        <td class='text-nowrap'>{$fecha_registro_txt}</td>
                         <td class='text-nowrap'>$ $valor_total</td>
                         <td class='text-nowrap'>
                             <span class='badge text-bg-info'>{$frecuencia_label}</span>
@@ -423,7 +433,7 @@ include("includes/header.php");
                                 <a href='ver.php?id=$id&tab=$tab_qs' class='btn btn-outline-primary'>
                                     Ver
                                 </a>
-                                " . ($es_jefe ? "<a href='editar.php?id=$id' class='btn btn-outline-warning'>
+                                " . ($es_jefe ? "<a href='editar.php?id=$id&tab=$tab_qs' class='btn btn-outline-warning'>
                                     Editar
                                 </a>" : "") . "
                                 <a href='estado_cuenta_pdf.php?id=$id' target='_blank' class='btn btn-outline-success'>
@@ -457,6 +467,7 @@ include("includes/header.php");
                                         <th>Teléfono</th>
                                         <th>Email</th>
                                         <th>Vendedor</th>
+                                        <th>Fecha registro</th>
                                         <th>Valor Total</th>
                                         <th>Frecuencia</th>
                                         <th>Cuotas</th>
@@ -468,7 +479,7 @@ include("includes/header.php");
                                 <tbody>";
 
                     if (!$items) {
-                        echo "<tr><td colspan='10' class='text-center text-muted py-4'>Sin resultados</td></tr>";
+                        echo "<tr><td colspan='11' class='text-center text-muted py-4'>Sin resultados</td></tr>";
                     } else {
                         foreach ($items as $r) {
 
@@ -630,6 +641,15 @@ document.addEventListener('DOMContentLoaded', () => {
     window.frecuenciaPago = document.getElementById('frecuencia_pago');
     window.fechaPrimerPago = document.getElementById('fecha_primer_pago');
     const form = document.getElementById('form-guardar-cliente');
+
+    // Fecha mínima: usar la fecha LOCAL del navegador (evita desfase de timezone de PHP)
+    const hoyLocal = todayISODate();
+    if (fechaPrimerPago) {
+        fechaPrimerPago.min = hoyLocal;
+        if (!fechaPrimerPago.value || fechaPrimerPago.value < hoyLocal) {
+            fechaPrimerPago.value = hoyLocal;
+        }
+    }
 
     // Defaults iniciales
     if (!sena.value) sena.value = 0;

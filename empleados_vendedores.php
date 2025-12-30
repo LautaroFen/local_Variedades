@@ -252,7 +252,7 @@ include("includes/header.php");
             </div>
         </div>
     </div>
-     <div class="row mt-5">
+     <div class="row mt-2">
             <div class="col-12 text-center">
                 <a href="index.php" class="btn btn-primary btn-lg me-2">Volver al Inicio</a>
             </div>

@@ -10,12 +10,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['pago_id']) && isset($_
     $pago_id = intval($_POST['pago_id']);
     $cliente_id = intval($_POST['cliente_id']);
     $nueva_fecha = mysqli_real_escape_string($conn, $_POST['nueva_fecha']);
+
+    $tab = isset($_POST['tab']) ? strtolower((string)$_POST['tab']) : '';
+    if (!in_array($tab, ['pendientes', 'atrasados', 'finalizados'], true)) {
+        $tab = '';
+    }
+    $tab_qs = ($tab !== '') ? ('&tab=' . urlencode($tab)) : '';
     
     // Validar formato de fecha
     $fecha_obj = DateTime::createFromFormat('Y-m-d', $nueva_fecha);
     if (!$fecha_obj || $fecha_obj->format('Y-m-d') !== $nueva_fecha) {
         $_SESSION['message'] = 'Fecha inválida';
-        header("Location: editar.php?id=" . $cliente_id);
+        header("Location: editar.php?id=" . $cliente_id . $tab_qs);
         exit();
     }
     
@@ -37,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['pago_id']) && isset($_
         $_SESSION['message'] = 'Error al preparar la consulta';
     }
     
-    header("Location: editar.php?id=" . $cliente_id);
+    header("Location: editar.php?id=" . $cliente_id . $tab_qs);
     exit();
 } else {
     header("Location: index.php");

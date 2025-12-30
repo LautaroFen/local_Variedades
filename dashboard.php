@@ -337,7 +337,7 @@ include("includes/header.php");
                     </div>
                     <?php if (mysqli_num_rows($resultado_finalizados_recientes) > 0): ?>
                         <div class="card-footer text-center">
-                            <a href="index.php?estado=finalizado" class="btn btn-sm btn-success">
+                            <a href="index.php?tab=finalizados#grilla-compras" class="btn btn-sm btn-success">
                                 Ver todos los clientes finalizados →
                             </a>
                         </div>
@@ -425,7 +425,9 @@ include("includes/header.php");
         <div class="row mt-5">
             <div class="col-12 text-center">
                 <a href="index.php" class="btn btn-primary btn-lg me-2">Volver al Inicio</a>
-                <a href="PHPMailer/exportar_excel.php" class="btn btn-success btn-lg">Exportar a Excel</a>
+                <?php if (isset($_SESSION['tipo_usuario']) && $_SESSION['tipo_usuario'] === 'jefe'): ?>
+                    <a href="PHPMailer/exportar_excel.php" class="btn btn-success btn-lg">Exportar a Excel</a>
+                <?php endif; ?>
             </div>
         </div>
     </div>
